@@ -6,6 +6,8 @@ import { useGraphStore } from '@/store/graphStore';
 export default function GraphVis3D() {
   const nodes = useGraphStore((s) => s.nodes);
   const edges = useGraphStore((s) => s.edges);
+  const highlightedNodeIds = useGraphStore((s) => s.highlightedNodeIds);
+  const highlightType = useGraphStore((s) => s.highlightType);
 
   return (
     <Canvas
@@ -16,7 +18,12 @@ export default function GraphVis3D() {
       {nodes.length === 0 ? (
         <EmptyScene />
       ) : (
-        <GraphScene nodes={nodes} edges={edges} />
+        <GraphScene
+          nodes={nodes}
+          edges={edges}
+          highlightedNodeIds={highlightedNodeIds}
+          highlightType={highlightType}
+        />
       )}
     </Canvas>
   );

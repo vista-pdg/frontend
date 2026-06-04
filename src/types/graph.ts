@@ -33,3 +33,22 @@ export interface StructureResponse {
   edges: Edge3D[];
   meta: GraphMeta | null;
 }
+
+export type HighlightType = 'initial' | 'insert' | 'unbalanced' | 'rotated' | 'balanced';
+
+export interface AlgorithmStep {
+  index: number;
+  title: string;
+  description: string;
+  highlightType: HighlightType;
+  highlightedNodeIds: string[];
+  rotationType: string | null;
+  nodes: Node3D[];
+  edges: Edge3D[];
+}
+
+export interface StepsResponse {
+  error: boolean;
+  message: string | null;
+  steps: AlgorithmStep[] | null;
+}
