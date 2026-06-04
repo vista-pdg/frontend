@@ -50,28 +50,28 @@ export default function GraphChat() {
   const showSuggestions = messages.length === 1;
 
   return (
-    <div className="flex w-80 max-h-[70vh] flex-col rounded-xl border border-indigo-500/20 bg-slate-950/90 shadow-2xl backdrop-blur-md">
+    <div className="flex w-80 max-h-[70vh] flex-col border border-primary/30 bg-black-main/90 shadow-2xl backdrop-blur-md scrollbar-custom">
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-indigo-500/20 bg-indigo-500/10 px-4 py-3 shrink-0 rounded-t-xl">
-        <span className="size-2 rounded-full bg-green-400 shadow-[0_0_6px_var(--color-green-400)]" />
-        <span className="text-sm font-semibold tracking-wide text-slate-100">
+      <div className="flex items-center gap-2 border-b border-primary/30 bg-primary/10 px-4 py-3 shrink-0">
+        <span className="size-2 rounded-full bg-secondary shadow-[0_0_6px_#4cb979]" />
+        <span className="text-sm font-semibold tracking-wide text-white">
           GraphBuilder AI
         </span>
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 min-h-28 px-3 py-3">
+      <ScrollArea className="flex-1 min-h-28 px-3 py-3 scrollbar-custom">
         <div className="flex flex-col gap-2">
           {messages.map((msg) => (
             <div
               key={msg.id}
               className={cn(
-                'max-w-[88%] rounded-xl px-3 py-2 text-[13px] leading-relaxed wrap-break-word',
+                'max-w-[88%] px-3 py-2 text-[13px] leading-relaxed wrap-break-word',
                 msg.role === 'user'
-                  ? 'self-end rounded-br-sm bg-indigo-500/40 text-slate-100'
+                  ? 'self-end bg-primary/40 text-white'
                   : msg.role === 'error'
-                  ? 'self-start rounded-bl-sm border border-red-500/40 bg-red-500/10 text-red-300'
-                  : 'self-start rounded-bl-sm bg-slate-800/80 text-slate-400'
+                  ? 'self-start border border-destructive/40 bg-destructive/10 text-red-300'
+                  : 'self-start bg-card/80 text-muted-foreground'
               )}
             >
               {msg.text.split('\n').map((line, i, arr) => (
@@ -84,11 +84,11 @@ export default function GraphChat() {
           ))}
 
           {loading && (
-            <div className="self-start flex items-center gap-1 rounded-xl rounded-bl-sm bg-slate-800/80 px-3 py-2">
+            <div className="self-start flex items-center gap-1 bg-card/80 px-3 py-2">
               {[0, 1, 2].map((i) => (
                 <span
                   key={i}
-                  className="size-1.5 rounded-full bg-indigo-400 animate-bounce"
+                  className="size-1.5 rounded-full bg-primary animate-bounce"
                   style={{ animationDelay: `${i * 0.15}s` }}
                 />
               ))}
@@ -106,7 +106,7 @@ export default function GraphChat() {
               key={s}
               type="button"
               onClick={() => { setInput(s); textareaRef.current?.focus(); }}
-              className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-[11px] text-indigo-300 hover:bg-indigo-500/20 transition-colors cursor-pointer"
+              className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] text-primary-light hover:bg-primary/20 transition-colors duration-150 cursor-pointer"
             >
               {s}
             </button>
@@ -117,7 +117,7 @@ export default function GraphChat() {
       {/* Input */}
       <form
         onSubmit={handleForm}
-        className="flex gap-2 border-t border-indigo-500/20 px-3 py-2.5 shrink-0"
+        className="flex gap-2 border-t border-primary/30 px-3 py-2.5 shrink-0"
       >
         <Textarea
           ref={textareaRef}
@@ -127,13 +127,13 @@ export default function GraphChat() {
           placeholder="Describe tu grafo… (Enter para enviar)"
           disabled={loading}
           rows={2}
-          className="flex-1 resize-none bg-slate-800/60 border-indigo-500/20 text-slate-100 placeholder:text-slate-500 text-[13px] focus-visible:ring-indigo-500/40"
+          className="flex-1 resize-none bg-card/60 border-primary/30 text-white placeholder:text-muted-foreground text-[13px] focus-visible:ring-primary/40"
         />
         <Button
           type="submit"
           size="icon"
           disabled={loading || !input.trim()}
-          className="self-end bg-indigo-600 hover:bg-indigo-500 text-white shrink-0"
+          className="self-end bg-primary hover:bg-primary-light text-white shrink-0 transition-colors duration-150"
         >
           <SendHorizonal className="size-4" />
         </Button>

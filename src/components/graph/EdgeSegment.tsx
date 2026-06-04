@@ -3,6 +3,10 @@ import { Line, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Edge3D, Node3D } from '@/types/graph';
 
+const ARROW_HEIGHT = 0.45;
+const ARROW_RADIUS = 0.12;
+const UP = new THREE.Vector3(0, 1, 0);
+
 interface EdgeSegmentProps {
   edge: Edge3D;
   nodeMap: Map<string, Node3D>;
@@ -13,48 +17,84 @@ export function EdgeSegment({ edge, nodeMap, nodeRadius = 0.4 }: EdgeSegmentProp
   const src = nodeMap.get(edge.from);
   const tgt = nodeMap.get(edge.to);
 
-  const { from, to, mid } = useMemo(() => {
-    if (!src || !tgt) return { from: null, to: null, mid: null };
+  const geo = useMemo(() => {
+    if (!src || !tgt) return null;
 
     const s = new THREE.Vector3(src.x, src.y, src.z);
     const t = new THREE.Vector3(tgt.x, tgt.y, tgt.z);
-    const dir = t.clone().sub(s);
-    const len = dir.length();
+    const fullDir = t.clone().sub(s);
+    const len = fullDir.length();
+    if (len < 0.001) return null;
 
-    // Offset endpoints so lines start/end at sphere surface, not center
-    const offset = len > 0 ? nodeRadius / len : 0;
+    const dirUnit = fullDir.clone().normalize();
+    const offset = nodeRadius / len;
+
+    // Points where the line starts and ends (pulled back from node surfaces)
     const fromV = s.clone().lerp(t, offset);
-    const toV = t.clone().lerp(s, offset);
+    const tipV = t.clone().lerp(s, offset); // arrowhead tip sits at node surface
+
+    // For directed edges shorten the line to leave room for the cone
+    const lineEnd = edge.directed
+      ? tipV.clone().sub(dirUnit.clone().multiplyScalar(ARROW_HEIGHT))
+      : tipV;
+
+    // Cone center = halfway between lineEnd and tip
+    const coneCenter = lineEnd.clone().lerp(tipV, 0.5);
+
+    // Quaternion to rotate cone (default +Y) to point along dirUnit
+    const quat = new THREE.Quaternion().setFromUnitVectors(UP, dirUnit);
+
+    // Weight label at edge midpoint, slightly raised
     const midV = s.clone().lerp(t, 0.5);
     midV.y += 0.25;
 
     return {
       from: fromV.toArray() as [number, number, number],
-      to: toV.toArray() as [number, number, number],
+      lineEnd: lineEnd.toArray() as [number, number, number],
+      coneCenter: coneCenter.toArray() as [number, number, number],
+      quat,
       mid: midV.toArray() as [number, number, number],
     };
-  }, [src, tgt, nodeRadius]);
+  }, [src, tgt, nodeRadius, edge.directed]);
 
-  if (!from || !to || !mid) return null;
+  if (!geo) return null;
+
+  const color = edge.directed ? '#5454e9' : '#4cb979';
 
   return (
     <>
       <Line
-        points={[from, to]}
-        color={edge.directed ? '#818cf8' : '#64748b'}
+        points={[geo.from, geo.lineEnd]}
+        color={color}
         lineWidth={edge.directed ? 2 : 1.5}
         transparent
-        opacity={0.7}
+        opacity={0.75}
       />
+
+      {edge.directed && (
+        <mesh position={geo.coneCenter} quaternion={geo.quat}>
+          <coneGeometry args={[ARROW_RADIUS, ARROW_HEIGHT, 8]} />
+          <meshStandardMaterial
+            color={color}
+            emissive={color}
+            emissiveIntensity={0.45}
+            roughness={0.3}
+            metalness={0.4}
+            transparent
+            opacity={0.9}
+          />
+        </mesh>
+      )}
+
       {edge.weight !== null && (
         <Text
-          position={mid}
+          position={geo.mid}
           fontSize={0.28}
-          color="#fbbf24"
+          color="#E4EB60"
           anchorX="center"
           anchorY="middle"
           outlineWidth={0.03}
-          outlineColor="#020617"
+          outlineColor="#000000"
           renderOrder={1}
         >
           {edge.weight}

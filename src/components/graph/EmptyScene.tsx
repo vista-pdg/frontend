@@ -5,22 +5,22 @@ export function EmptyScene() {
     <>
       <ambientLight intensity={0.1} />
       <Text
-        position={[0, 0.4, 0]}
+        position={[0, 0.5, 0]}
         fontSize={0.6}
-        color="#1e293b"
+        color="#5454e9"
         anchorX="center"
         anchorY="middle"
       >
-        Sin grafo
+        Sin estructura
       </Text>
       <Text
-        position={[0, -0.5, 0]}
-        fontSize={0.3}
-        color="#0f172a"
+        position={[0, -0.4, 0]}
+        fontSize={0.28}
+        color="#a0a0a0"
         anchorX="center"
         anchorY="middle"
       >
-        Escribe un prompt en el chat →
+        Describe una estructura en el chat
       </Text>
     </>
   );

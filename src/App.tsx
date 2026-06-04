@@ -1,35 +1,55 @@
+import { AppSidebar } from './components/AppSidebar';
+import { ChatPanel } from './components/ChatPanel';
+import { AlgorithmPanel } from './components/AlgorithmPanel';
+import { CanvasOverlay } from './components/CanvasOverlay';
 import GraphVis3D from './components/GraphVis3D';
-import GraphChat from './components/GraphChat';
 import { useGraphStore } from './store/graphStore';
 
 export default function App() {
-  const meta = useGraphStore((s) => s.meta);
+  const chatOpen = useGraphStore((s) => s.chatOpen);
+  const setChatOpen = useGraphStore((s) => s.setChatOpen);
+  const algorithmOpen = useGraphStore((s) => s.algorithmOpen);
+  const setAlgorithmOpen = useGraphStore((s) => s.setAlgorithmOpen);
+
+  function toggleChat() {
+    if (!chatOpen) {
+      setAlgorithmOpen(false);
+    }
+    setChatOpen(!chatOpen);
+  }
+
+  function toggleAlgorithm() {
+    if (!algorithmOpen) {
+      setChatOpen(false);
+    }
+    setAlgorithmOpen(!algorithmOpen);
+  }
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-slate-950">
-      {/* Canvas ocupa todo */}
-      <GraphVis3D />
+    <div className="flex h-screen w-screen overflow-hidden bg-black-main">
+      <AppSidebar />
 
-      {/* Badge de metadata — top left */}
-      {meta && (
-        <div className="absolute top-4 left-4 z-10 flex items-center gap-2 rounded-xl border border-indigo-500/20 bg-slate-950/85 px-3.5 py-2 backdrop-blur-md">
-          <span className="text-[11px] font-bold tracking-widest text-indigo-400">
-            {meta.type.toUpperCase()}
-          </span>
-          {meta.subtype && (
-            <span className="rounded px-1.5 py-0.5 text-[11px] bg-indigo-500/15 text-slate-400">
-              {meta.subtype}
-            </span>
-          )}
-          <span className="text-[11px] text-slate-500">
-            {meta.nodeCount}N · {meta.edgeCount}E
-          </span>
+      <div className="flex flex-1 overflow-hidden min-w-0">
+        {/* Canvas area */}
+        <div className="relative flex-1 overflow-hidden min-w-0">
+          <GraphVis3D />
+          <CanvasOverlay
+            chatOpen={chatOpen}
+            onToggleChat={toggleChat}
+            algorithmOpen={algorithmOpen}
+            onToggleAlgorithm={toggleAlgorithm}
+          />
         </div>
-      )}
 
-      {/* Chat panel — bottom right */}
-      <div className="absolute bottom-5 right-5 z-10">
-        <GraphChat />
+        {/* Right panels — only one open at a time */}
+        <ChatPanel
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
+        />
+        <AlgorithmPanel
+          open={algorithmOpen}
+          onClose={() => setAlgorithmOpen(false)}
+        />
       </div>
     </div>
   );

@@ -6,6 +6,15 @@ const http = axios.create({
   timeout: 30_000,
 });
 
+// Attach JWT from localStorage if present
+http.interceptors.request.use((config) => {
+  const token = localStorage.getItem('vista_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 http.interceptors.response.use(
   (res) => res,
   (err) => {
