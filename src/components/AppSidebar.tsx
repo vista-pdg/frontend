@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Network,
   GitFork,
@@ -11,10 +12,13 @@ import {
   Info,
   ChevronDown,
   FlaskConical,
+  Settings,
+  LogOut,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useGraphStore } from '@/store/graphStore';
+import { useAuth } from '@/contexts/AuthContext';
 import { Separator } from '@/components/ui/separator';
 
 interface SubItem {
@@ -56,6 +60,8 @@ export function AppSidebar() {
   const setActiveStructureType = useGraphStore((s) => s.setActiveStructureType);
   const meta = useGraphStore((s) => s.meta);
   const openAlgorithmDemo = useGraphStore((s) => s.openAlgorithmDemo);
+
+  const { user, isAdmin, logout } = useAuth();
 
   function toggleExpand(type: string) {
     setExpandedTypes((prev) => {
@@ -269,6 +275,74 @@ export function AppSidebar() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* User footer */}
+      {user && (
+        <>
+          <Separator className="bg-border shrink-0" />
+          <div
+            className={cn(
+              'shrink-0',
+              collapsed ? 'py-3 flex flex-col items-center gap-2' : 'px-3 py-3'
+            )}
+          >
+            {collapsed ? (
+              <>
+                <div
+                  className="size-7 bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary shrink-0"
+                  title={user.displayName}
+                >
+                  {user.displayName[0]?.toUpperCase()}
+                </div>
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    className="text-muted-foreground hover:text-yellow-main transition-colors duration-150"
+                    title="Panel Admin"
+                  >
+                    <Settings className="size-3.5" />
+                  </Link>
+                )}
+                <button
+                  onClick={logout}
+                  className="text-muted-foreground hover:text-destructive transition-colors duration-150"
+                  title="Cerrar sesión"
+                >
+                  <LogOut className="size-3.5" />
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="size-7 bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                  {user.displayName[0]?.toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold text-white truncate">{user.displayName}</p>
+                  <p className="text-[9px] text-muted-foreground truncate">{user.email}</p>
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      className="text-muted-foreground hover:text-yellow-main transition-colors duration-150 p-1"
+                      title="Panel Admin"
+                    >
+                      <Settings className="size-3.5" />
+                    </Link>
+                  )}
+                  <button
+                    onClick={logout}
+                    className="text-muted-foreground hover:text-destructive transition-colors duration-150 p-1"
+                    title="Cerrar sesión"
+                  >
+                    <LogOut className="size-3.5" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
