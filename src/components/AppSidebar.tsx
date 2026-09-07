@@ -12,6 +12,7 @@ import {
   Info,
   ChevronDown,
   FlaskConical,
+  BarChart3,
   Settings,
   LogOut,
   type LucideIcon,
@@ -61,7 +62,7 @@ export function AppSidebar() {
   const meta = useGraphStore((s) => s.meta);
   const openAlgorithmDemo = useGraphStore((s) => s.openAlgorithmDemo);
 
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isTeacher, logout } = useAuth();
 
   function toggleExpand(type: string) {
     setExpandedTypes((prev) => {
@@ -299,6 +300,16 @@ export function AppSidebar() {
                 >
                   {user.displayName[0]?.toUpperCase()}
                 </div>
+                {isTeacher && (
+                  <Link
+                    to="/analytics"
+                    data-cy="sidebar-analytics"
+                    className="text-muted-foreground hover:text-primary transition-colors duration-150"
+                    title="Panel analítico"
+                  >
+                    <BarChart3 className="size-3.5" />
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link
                     to="/admin"
@@ -326,6 +337,16 @@ export function AppSidebar() {
                   <p className="text-[9px] text-muted-foreground truncate">{user.email}</p>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
+                  {isTeacher && (
+                    <Link
+                      to="/analytics"
+                      data-cy="sidebar-analytics"
+                      className="text-muted-foreground hover:text-primary transition-colors duration-150 p-1"
+                      title="Panel analítico"
+                    >
+                      <BarChart3 className="size-3.5" />
+                    </Link>
+                  )}
                   {isAdmin && (
                     <Link
                       to="/admin"

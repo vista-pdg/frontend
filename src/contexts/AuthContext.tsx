@@ -1,57 +1,64 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import type { AuthUser, LoginResponse } from '@/types/auth';
-
-const TOKEN_KEY = 'vista_token';
-const USER_KEY = 'vista_user';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { session } from '@/lib/session';
+import { logout as logoutRequest } from '@/services/authService';
+import type { AuthUser, Role } from '@/types/auth';
 
 interface AuthContextValue {
   user: AuthUser | null;
-  token: string | null;
+  roles: Role[];
+  isAuthenticated: boolean;
+  isTeacher: boolean;
   isAdmin: boolean;
-  login: (res: LoginResponse) => void;
-  logout: () => void;
+  hasRole: (role: Role) => boolean;
+  /** Ruta a la que corresponde entrar según el rol. */
+  homeRoute: string;
+  refreshFromStorage: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function loadFromStorage(): { user: AuthUser | null; token: string | null } {
-  try {
-    const token = localStorage.getItem(TOKEN_KEY);
-    const raw = localStorage.getItem(USER_KEY);
-    if (!token || !raw) return { user: null, token: null };
-    return { user: JSON.parse(raw), token };
-  } catch {
-    return { user: null, token: null };
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState(loadFromStorage);
+  const [user, setUser] = useState<AuthUser | null>(() => session.user());
 
-  const login = useCallback((res: LoginResponse) => {
-    const user: AuthUser = {
-      email: res.email,
-      displayName: res.displayName,
-      roles: res.roles,
+  // El interceptor puede limpiar la sesión sin pasar por React —token de refresco revocado, reuso
+  // detectado—. Sin esta suscripción la UI seguiría pintando al usuario hasta la siguiente
+  // navegación, dejándolo ante una pantalla que ya no puede usar.
+  useEffect(() => session.subscribe(() => setUser(session.user())), []);
+
+  const logout = useCallback(async () => {
+    await logoutRequest();
+    setUser(null);
+  }, []);
+
+  const refreshFromStorage = useCallback(() => setUser(session.user()), []);
+
+  const value = useMemo<AuthContextValue>(() => {
+    const roles = user?.roles ?? [];
+    const hasRole = (role: Role) => roles.includes(role);
+    return {
+      user,
+      roles,
+      isAuthenticated: user !== null,
+      isTeacher: hasRole('TEACHER'),
+      isAdmin: hasRole('ADMIN'),
+      hasRole,
+      // CA-3: el docente entra directo al panel analítico; el resto, al lienzo.
+      homeRoute: hasRole('TEACHER') ? '/analytics' : '/',
+      refreshFromStorage,
+      logout,
     };
-    localStorage.setItem(TOKEN_KEY, res.token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-    setState({ user, token: res.token });
-  }, []);
+  }, [user, logout, refreshFromStorage]);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    setState({ user: null, token: null });
-  }, []);
-
-  const isAdmin = state.user?.roles.includes('ADMIN') ?? false;
-
-  return (
-    <AuthContext.Provider value={{ user: state.user, token: state.token, isAdmin, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

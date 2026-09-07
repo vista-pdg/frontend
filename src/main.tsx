@@ -1,35 +1,29 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './index.css';
 import App from './App.tsx';
-import { LoginPage } from './pages/LoginPage.tsx';
+import { WelcomePage } from './pages/WelcomePage.tsx';
 import { AdminPage } from './pages/AdminPage.tsx';
-import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
+import { AnalyticsPage } from './pages/AnalyticsPage.tsx';
+import { AuthProvider } from './contexts/AuthContext.tsx';
+import { RedirectIfAuthenticated, RequireAuth, RequireRole } from './routes/guards.tsx';
 
 document.documentElement.classList.add('dark');
-
-function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const location = useLocation();
-  if (!user) {
-    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
-  }
-  return <>{children}</>;
-}
-
-function RequireAdmin({ children }: { children: React.ReactNode }) {
-  const { isAdmin } = useAuth();
-  if (!isAdmin) return <Navigate to="/" replace />;
-  return <>{children}</>;
-}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/login"
+            element={
+              <RedirectIfAuthenticated>
+                <WelcomePage />
+              </RedirectIfAuthenticated>
+            }
+          />
           <Route
             path="/"
             element={
@@ -39,12 +33,22 @@ createRoot(document.getElementById('root')!).render(
             }
           />
           <Route
+            path="/analytics"
+            element={
+              <RequireAuth>
+                <RequireRole role="TEACHER">
+                  <AnalyticsPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
             path="/admin"
             element={
               <RequireAuth>
-                <RequireAdmin>
+                <RequireRole role="ADMIN">
                   <AdminPage />
-                </RequireAdmin>
+                </RequireRole>
               </RequireAuth>
             }
           />
