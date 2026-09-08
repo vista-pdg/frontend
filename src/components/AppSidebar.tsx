@@ -15,6 +15,8 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  Layers,
+  ArrowRightToLine,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -33,10 +35,12 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   subItems?: SubItem[];
+  /** Demo paso a paso de la familia (HU-19): clave del catálogo `type/subtype/op`. */
+  demo?: { subtype: string; op: string; title: string };
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { type: 'graph', label: 'Grafos', icon: GitFork },
+  { type: 'graph', label: 'Grafos', icon: GitFork, demo: { subtype: 'simple', op: 'bfs', title: 'Demo: BFS sobre el grafo del lienzo' } },
   {
     type: 'tree',
     label: 'Árboles',
@@ -48,6 +52,8 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   { type: 'heap', label: 'Heaps', icon: ChevronUp },
+  { type: 'stack', label: 'Pilas', icon: Layers, demo: { subtype: 'simple', op: 'pop', title: 'Demo: pop paso a paso' } },
+  { type: 'queue', label: 'Colas', icon: ArrowRightToLine, demo: { subtype: 'simple', op: 'dequeue', title: 'Demo: dequeue paso a paso' } },
   { type: 'linked-list', label: 'Listas Enlazadas', icon: Link2 },
   { type: 'hash-table', label: 'Tablas Hash', icon: Table2 },
 ];
@@ -109,7 +115,7 @@ export function AppSidebar() {
                 VISTA
               </span>
               <span className="text-[9px] tracking-widest text-muted-foreground uppercase">
-                Visualizador 3D
+                Visualizador
               </span>
             </div>
           )}
@@ -146,19 +152,21 @@ export function AppSidebar() {
         {collapsed && <div className="pt-2" />}
 
         <nav className="flex flex-col gap-0.5 px-1.5">
-          {NAV_ITEMS.map(({ type, label, icon: Icon, subItems }) => {
+          {NAV_ITEMS.map(({ type, label, icon: Icon, subItems, demo }) => {
             const isActive = activeStructureType === type;
             const hasSubItems = !!subItems && subItems.length > 0;
             const isExpanded = expandedTypes.has(type);
 
             return (
               <div key={type}>
-                {/* Main item */}
+                {/* Main item (+ demo de la familia, HU-19) */}
+                <div className="flex items-center gap-1">
                 <button
                   onClick={() => handleTypeClick(type, hasSubItems)}
                   title={collapsed ? label : undefined}
+                  data-cy={`nav-${type}`}
                   className={cn(
-                    'flex items-center gap-3 py-2.5 text-sm transition-all duration-150 w-full',
+                    'flex items-center gap-3 py-2.5 text-sm transition-all duration-150 w-full min-w-0',
                     'border-l-2',
                     collapsed ? 'justify-center px-0' : 'justify-start px-3',
                     isActive
@@ -188,6 +196,17 @@ export function AppSidebar() {
                     </>
                   )}
                 </button>
+                {demo && !collapsed && (
+                  <button
+                    onClick={() => openAlgorithmDemo(type, demo.subtype, demo.op)}
+                    data-cy={`demo-${type}-${demo.subtype}`}
+                    title={demo.title}
+                    className="flex items-center justify-center size-7 mr-1 text-muted-foreground hover:text-yellow-main hover:bg-yellow-main/10 transition-colors duration-150 shrink-0 border border-transparent hover:border-yellow-main/30"
+                  >
+                    <FlaskConical className="size-3.5" />
+                  </button>
+                )}
+                </div>
 
                 {/* Sub-items (tree subtypes) */}
                 {!collapsed && hasSubItems && isExpanded && subItems && (

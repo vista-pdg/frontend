@@ -10,7 +10,9 @@ core/
   model.ts        StructureState, Highlight, ExecutionStep, RenderFrame, EngineState, VisualizationMode
   renderer.ts     contrato Renderer + RendererRegistry
   engine.ts       VisualizationEngine (estado, rastro, paso, modo) y frameOf()
-  layout2d.ts     disposiciones 2D: árbol ordenado, circular, lineal; boundsOf, overlappingPairs
+  layout2d.ts     disposiciones 2D: árbol ordenado, fuerzas, circular, lineal, pila, cola; boundsOf, overlappingPairs
+  color.ts        contraste WCAG: contrastRatio, labelColorFor, meetsAA
+  palette.ts      paleta compartida por los adaptadores: DEPTH_COLORS, HIGHLIGHT_COLORS, STATE_COLORS, nodeFill
   webgl.ts        detectWebGL()
   preferences.ts  loadPreferredMode / savePreferredMode (localStorage: vista_visualization_mode)
 ```
@@ -70,6 +72,13 @@ componentes siguen leyendo `nodes`, `steps`, `currentStepIndex`, `mode`… con `
 3. Regístralo en `appEngine.ts` y móntalo en `components/VisualizationCanvas.tsx` según `mode`.
 4. Si dibuja de verdad en algo inspeccionable (DOM, escena), sobrescribe `snapshot()` para leer de
    ahí.
+
+## Color y accesibilidad (HU-19)
+
+Los dos adaptadores pintan con `palette.ts`: el resaltado del paso manda, luego el estado que el
+algoritmo escribe en `properties.state` (`visited`, `frontier`, `current`), luego la profundidad.
+La etiqueta de un nodo es negra o blanca según `labelColorFor(fill)`; `color.test.ts` recorre toda
+la paleta y exige ≥ 4.5:1 en texto y ≥ 3:1 en aristas sobre el fondo del lienzo.
 
 ## Pruebas
 

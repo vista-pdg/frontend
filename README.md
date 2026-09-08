@@ -48,6 +48,18 @@ WebGL, el lienzo abre en 2D con un aviso. Toda petición al backend lleva la cab
 `X-Visualization-Mode` con el modo activo, que la telemetría registra. Detalles en
 [`src/core/README.md`](src/core/README.md).
 
+El 2D cubre las cuatro familias del syllabus —grafos (fuerzas deterministas), árboles (jerárquico
+que conserva el lado de los hijos), pilas (columna con base y tope) y colas (fila con frente y
+final)— con la misma paleta que el 3D y etiquetas negras o blancas según el relleno (AA). Cada nodo
+y arista lleva texto alterno.
+
+## Algoritmos paso a paso
+
+El panel de algoritmos lista el catálogo que sirve `GET /api/algorithm/catalog`, agrupado por
+familia; el mismo en 2D y 3D. Los que construyen su estructura (AVL, pop, dequeue) reciben valores;
+BFS recorre el grafo que haya en el lienzo desde el nodo elegido. Los pasos los produce el backend y
+los reproduce el motor en cualquiera de los dos adaptadores.
+
 ## Diseño
 
 Sistema de diseño Icesi: `DESIGN.md` y los tokens de `src/index.css`. La app fuerza modo oscuro. Las

@@ -34,7 +34,29 @@ export interface StructureResponse {
   meta: GraphMeta | null;
 }
 
-export type HighlightType = 'initial' | 'insert' | 'unbalanced' | 'rotated' | 'balanced';
+/** Significado de un resaltado. Los cinco primeros son del AVL; el resto los añadió HU-19. */
+export type HighlightType =
+  | 'initial'
+  | 'insert'
+  | 'unbalanced'
+  | 'rotated'
+  | 'balanced'
+  | 'visit'
+  | 'frontier'
+  | 'done'
+  | 'pop'
+  | 'dequeue';
+
+/** Entrada del catálogo de algoritmos (HU-19). `input` dice qué necesita: valores o la estructura del lienzo. */
+export interface AlgorithmDescriptor {
+  type: string;
+  subtype: string;
+  operation: string;
+  family: 'tree' | 'graph' | 'stack' | 'queue' | string;
+  label: string;
+  description: string;
+  input: 'values' | 'structure';
+}
 
 export interface AlgorithmStep {
   index: number;

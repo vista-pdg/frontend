@@ -23,6 +23,11 @@ const HIGHLIGHT_LABELS: Record<string, { label: string; color: string }> = {
   unbalanced: { label: 'DESBALANCE', color: 'text-destructive' },
   rotated: { label: 'ROTACIÓN', color: 'text-yellow-main' },
   balanced: { label: 'BALANCEADO', color: 'text-secondary' },
+  visit: { label: 'VISITAR', color: 'text-orange-main' },
+  frontier: { label: 'EN COLA', color: 'text-yellow-main' },
+  done: { label: 'COMPLETO', color: 'text-secondary' },
+  pop: { label: 'POP', color: 'text-red-400' },
+  dequeue: { label: 'DEQUEUE', color: 'text-red-400' },
 };
 
 const STEP_INTERVAL_MS = 1400;

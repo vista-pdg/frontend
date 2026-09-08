@@ -3,20 +3,11 @@ import { useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Node3D, HighlightType } from '@/types/graph';
+import { nodeFill } from '@/core';
 
-const DEPTH_COLORS = ['#5454e9', '#865FF0', '#4cb979', '#E9683B', '#E4EB60'];
-
-const HIGHLIGHT_COLORS: Record<HighlightType, string> = {
-  initial: '#5454e9',
-  insert: '#E9683B',
-  unbalanced: '#d32f2f',
-  rotated: '#E4EB60',
-  balanced: '#4cb979',
-};
-
+/** Misma paleta que el 2D (core/palette): resaltado > estado del recorrido > profundidad. */
 function nodeColor(node: Node3D, highlighted: boolean, highlightType: HighlightType | null): string {
-  if (highlighted && highlightType) return HIGHLIGHT_COLORS[highlightType];
-  return DEPTH_COLORS[node.depth % DEPTH_COLORS.length];
+  return nodeFill(node.depth, node.properties?.state, highlighted, highlightType);
 }
 
 interface NodeSphereProps {

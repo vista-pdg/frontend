@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { boundsOf, detectLayoutKind, edgeEndpoints, layout2D, overlappingPairs, treeShapeOf } from '@/core';
+import {
+  boundsOf,
+  detectLayoutKind,
+  edgeEndpoints,
+  forceLayout,
+  isQueue,
+  isStack,
+  layout2D,
+  overlappingPairs,
+  treeShapeOf,
+} from '@/core';
 import { bst, completeGraph, edge, node } from './fixtures';
 
 const NODE_RADIUS = 22;
@@ -49,15 +59,19 @@ describe('layout2D — árboles', () => {
 });
 
 describe('layout2D — detección de forma', () => {
-  it('un grafo con ciclo no es árbol y se dispone en círculo', () => {
+  it('un grafo con ciclo no es árbol: hasta 3 nodos en círculo, más grandes por fuerzas', () => {
+    const k3 = completeGraph(3);
+    expect(treeShapeOf(k3)).toBeNull();
+    expect(detectLayoutKind(k3)).toBe('circular');
+    const small = layout2D(k3);
+    const r = Math.hypot(small.n0.x, small.n0.y);
+    for (const p of Object.values(small)) expect(Math.hypot(p.x, p.y)).toBeCloseTo(r);
+
     const g = completeGraph(12);
-    expect(treeShapeOf(g)).toBeNull();
-    expect(detectLayoutKind(g)).toBe('circular');
+    expect(detectLayoutKind(g)).toBe('force');
     const layout = layout2D(g);
     expect(Object.keys(layout)).toHaveLength(12);
     expect(overlappingPairs(layout, NODE_RADIUS)).toEqual([]);
-    const r = Math.hypot(layout.n0.x, layout.n0.y);
-    for (const p of Object.values(layout)) expect(Math.hypot(p.x, p.y)).toBeCloseTo(r);
   });
 
   it('dos raíces o una arista hacia un nodo inexistente no forman árbol', () => {
@@ -94,6 +108,106 @@ describe('layout2D — detección de forma', () => {
     const layout = layout2D(s);
     expect(layout.a.x).toBeLessThan(layout.b.x);
     expect(new Set(Object.values(layout).map((p) => p.x)).size).toBe(4);
+  });
+});
+
+describe('layout2D — fuerzas (HU-19)', () => {
+  function cycle(n: number) {
+    const nodes = Array.from({ length: n }, (_, i) => node(`v${i}`, `V${i + 1}`));
+    const edges = nodes.map((_, i) => edge(`v${i}`, `v${(i + 1) % n}`, false));
+    return { nodes, edges };
+  }
+
+  it('C12 y K6 quedan sin solapes y con las aristas de longitud razonable', () => {
+    for (const s of [cycle(12), completeGraph(6), cycle(20)]) {
+      expect(overlappingPairs(forceLayout(s), NODE_RADIUS), `${s.nodes.length} nodos`).toEqual([]);
+    }
+    // En un ciclo ninguna arista cruza el dibujo de punta a punta: la atracción mantiene a los
+    // vecinos cerca. (En un grafo completo las aristas largas son inevitables.)
+    for (const s of [cycle(12), cycle(20)]) {
+      const layout = forceLayout(s);
+      const b = boundsOf(layout);
+      const diagonal = Math.hypot(b.maxX - b.minX, b.maxY - b.minY);
+      for (const e of s.edges) {
+        const p = layout[e.from];
+        const q = layout[e.to];
+        expect(Math.hypot(p.x - q.x, p.y - q.y)).toBeLessThan(diagonal * 0.6);
+      }
+    }
+  });
+
+  it('es determinista y queda centrada en el origen', () => {
+    const s = cycle(9);
+    const a = forceLayout(s);
+    const b = forceLayout(s);
+    expect(a).toEqual(b);
+    const pts = Object.values(a);
+    const cx = pts.reduce((acc, p) => acc + p.x, 0) / pts.length;
+    const cy = pts.reduce((acc, p) => acc + p.y, 0) / pts.length;
+    expect(Math.abs(cx)).toBeLessThan(0.01);
+    expect(Math.abs(cy)).toBeLessThan(0.01);
+  });
+
+  it('ignora aristas hacia nodos inexistentes y bucles, y no falla con 0/1/2 nodos', () => {
+    expect(forceLayout({ nodes: [], edges: [] })).toEqual({});
+    expect(forceLayout({ nodes: [node('a')], edges: [] })).toEqual({ a: { x: 0, y: 0 } });
+    const two = forceLayout({ nodes: [node('a'), node('b')], edges: [edge('a', 'a'), edge('a', 'zz')] });
+    expect(Object.keys(two)).toEqual(['a', 'b']);
+    expect(Math.hypot(two.a.x - two.b.x, two.a.y - two.b.y)).toBeGreaterThan(2 * NODE_RADIUS);
+  });
+});
+
+describe('layout2D — pila y cola (HU-19)', () => {
+  const stack = {
+    nodes: [
+      node('n0', '3', { properties: { index: 0, role: 'bottom' } }),
+      node('n1', '42', { properties: { index: 1, role: 'middle' } }),
+      node('n2', '8', { properties: { index: 2, role: 'middle' } }),
+      node('n3', '17', { properties: { index: 3, role: 'top' } }),
+    ],
+    edges: [],
+  };
+  const queue = {
+    nodes: [
+      node('n0', '5', { properties: { index: 0, role: 'front' } }),
+      node('n1', '9', { properties: { index: 1, role: 'middle' } }),
+      node('n2', '14', { properties: { index: 2, role: 'rear' } }),
+    ],
+    edges: [edge('n0', 'n1'), edge('n1', 'n2')],
+  };
+
+  it('la pila se apila en una columna con el tope arriba', () => {
+    expect(isStack(stack)).toBe(true);
+    expect(detectLayoutKind(stack)).toBe('stack');
+    const layout = layout2D(stack);
+    expect(new Set(Object.values(layout).map((p) => p.x)).size).toBe(1);
+    expect(layout.n3.y).toBeLessThan(layout.n2.y);
+    expect(layout.n0.y).toBeGreaterThan(layout.n1.y);
+    expect(layout.n0.y, 'la base anclada en el origen').toBe(0);
+    // Tras un pop la base no se mueve y el nuevo tope ocupa la altura del anterior menos una celda.
+    const popped = layout2D({
+      nodes: [stack.nodes[0], stack.nodes[1], node('n2', '8', { properties: { index: 2, role: 'top' } })],
+      edges: [],
+    });
+    expect(popped.n0).toEqual(layout.n0);
+    expect(popped.n2.y).toBeGreaterThan(layout.n3.y);
+    expect(overlappingPairs(layout, NODE_RADIUS)).toEqual([]);
+  });
+
+  it('la cola es una fila con el frente a la izquierda', () => {
+    expect(isQueue(queue)).toBe(true);
+    expect(detectLayoutKind(queue)).toBe('queue');
+    const layout = layout2D(queue);
+    expect(new Set(Object.values(layout).map((p) => p.y)).size).toBe(1);
+    expect(layout.n0.x).toBeLessThan(layout.n1.x);
+    expect(layout.n1.x).toBeLessThan(layout.n2.x);
+  });
+
+  it('una pila o cola de un solo elemento se reconoce por su único rol', () => {
+    expect(isStack({ nodes: [node('n0', '7', { properties: { index: 0, role: 'top' } })], edges: [] })).toBe(true);
+    expect(isQueue({ nodes: [node('n0', '7', { properties: { index: 0, role: 'front' } })], edges: [] })).toBe(true);
+    expect(isStack({ nodes: [node('a')], edges: [] })).toBe(false);
+    expect(isQueue({ nodes: [], edges: [] })).toBe(false);
   });
 });
 
