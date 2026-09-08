@@ -42,6 +42,14 @@ const SUGGESTIONS_BY_TYPE: Record<string, string[]> = {
     'Lista doblemente enlazada [10, 20, 30, 40]',
     'Lista circular con 4 nodos: 7, 14, 21, 28',
   ],
+  stack: [
+    'Pila con 3, 42, 8, 17 (17 en el tope)',
+    'Una pila con los valores 4, 8, 15, 16',
+  ],
+  queue: [
+    'Cola con 5, 9, 1, 14 (5 al frente)',
+    'Una cola con los elementos 2, 7, 11',
+  ],
   'hash-table': [
     'Tabla hash 7 cubetas con [15, 22, 35, 8, 43, 10]',
     'Hash table tamaño 5 con [3, 8, 13, 18, 23]',
@@ -63,6 +71,8 @@ const PLACEHOLDER_BY_TYPE: Record<string, string> = {
   heap: 'Describe el heap… (Enter para enviar)',
   'linked-list': 'Describe la lista enlazada… (Enter para enviar)',
   'hash-table': 'Describe la tabla hash… (Enter para enviar)',
+  stack: 'Describe la pila… (Enter para enviar)',
+  queue: 'Describe la cola… (Enter para enviar)',
 };
 
 interface ChatPanelProps {

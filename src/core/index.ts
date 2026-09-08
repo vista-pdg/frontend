@@ -4,3 +4,5 @@ export * from './engine';
 export * from './layout2d';
 export * from './webgl';
 export * from './preferences';
+export * from './color';
+export * from './palette';

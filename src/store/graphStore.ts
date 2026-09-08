@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import { generateGraphWithQuota, fetchAlgorithmSteps } from '@/services/graphService';
+import { generateGraphWithQuota } from '@/services/graphService';
+import { algorithmKey, fetchCatalog, runAlgorithm } from '@/services/algorithmService';
 import { fetchQuota } from '@/services/assistantService';
 import { ApiError } from '@/lib/http';
 import type { QuotaStatus } from '@/types/auth';
-import type { Node3D, Edge3D, GraphMeta, AlgorithmStep, HighlightType } from '@/types/graph';
+import type { Node3D, Edge3D, GraphMeta, AlgorithmStep, AlgorithmDescriptor, HighlightType } from '@/types/graph';
 import type { EngineState, VisualizationMode } from '@/core';
 import { chooseMode, engine, preferredMode, webglAvailable } from '@/renderers/appEngine';
 
@@ -24,6 +25,8 @@ const TYPE_LABELS: Record<string, string> = {
   tree: 'Árbol',
   'linked-list': 'Lista Enlazada',
   'hash-table': 'Tabla Hash',
+  stack: 'Pila',
+  queue: 'Cola',
 };
 
 /**
@@ -83,6 +86,11 @@ interface GraphState extends VisualizationMirror {
   algorithmSubtype: string | null;
   algorithmOperation: string | null;
   stepsLoading: boolean;
+  /** Catálogo del servidor (HU-19 · CA-4): el mismo en cualquier modo. */
+  catalog: AlgorithmDescriptor[];
+  catalogLoading: boolean;
+  /** Entrada del catálogo elegida en el panel; deriva de algorithmType/Subtype/Operation. */
+  selectedAlgorithm: AlgorithmDescriptor | null;
 
   sendPrompt: (prompt: string) => Promise<void>;
   clearAll: () => void;
@@ -98,7 +106,13 @@ interface GraphState extends VisualizationMirror {
 
   setAlgorithmOpen: (open: boolean) => void;
   openAlgorithmDemo: (type: string, subtype: string, operation: string) => void;
-  loadAlgorithmSteps: (type: string, subtype: string, operation: string, values: number[]) => Promise<void>;
+  loadCatalog: () => Promise<void>;
+  selectAlgorithm: (descriptor: AlgorithmDescriptor | null) => void;
+  /**
+   * Ejecuta el algoritmo elegido. Los de entrada `values` reciben los valores; los de entrada
+   * `structure` recorren lo que hay en el motor (nodos y aristas actuales) desde `start`.
+   */
+  runSelectedAlgorithm: (input: { values?: number[]; start?: string }) => Promise<void>;
   setCurrentStep: (index: number) => void;
   nextStep: () => void;
   prevStep: () => void;
@@ -124,6 +138,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   algorithmSubtype: null,
   algorithmOperation: null,
   stepsLoading: false,
+  catalog: [],
+  catalogLoading: false,
+  selectedAlgorithm: null,
 
   sendPrompt: async (prompt: string) => {
     if (get().loading || get().assistantBlocked) return;
@@ -262,7 +279,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   setAlgorithmOpen: (open) => set({ algorithmOpen: open }),
 
   openAlgorithmDemo: (type, subtype, operation) => {
-    engine.clear();
+    const key = `${type}/${subtype}/${operation}`;
     set({
       algorithmOpen: true,
       chatOpen: false,
@@ -270,21 +287,66 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       algorithmSubtype: subtype,
       algorithmOperation: operation,
     });
+    // La decisión de limpiar o no el lienzo depende del catálogo: BFS recorre lo que hay en el
+    // lienzo y no debe borrarlo; los que construyen su estructura arrancan de cero. Si el catálogo
+    // aún no llegó, se espera a tenerlo antes de decidir.
+    const apply = () => {
+      const found = get().catalog.find((d) => algorithmKey(d) === key) ?? null;
+      if (!found || found.input !== 'structure') engine.clear();
+      set({ selectedAlgorithm: found });
+    };
+    if (get().catalog.length === 0) void get().loadCatalog().then(apply);
+    else apply();
   },
 
-  loadAlgorithmSteps: async (type, subtype, operation, values) => {
+  loadCatalog: async () => {
+    if (get().catalogLoading) return;
+    set({ catalogLoading: true });
+    try {
+      const catalog = await fetchCatalog();
+      const { algorithmType, algorithmSubtype, algorithmOperation } = get();
+      const key = `${algorithmType}/${algorithmSubtype}/${algorithmOperation}`;
+      set({
+        catalog,
+        catalogLoading: false,
+        selectedAlgorithm: get().selectedAlgorithm ?? catalog.find((d) => algorithmKey(d) === key) ?? null,
+      });
+    } catch {
+      set({ catalogLoading: false });
+    }
+  },
+
+  selectAlgorithm: (descriptor) =>
+    set({
+      selectedAlgorithm: descriptor,
+      algorithmType: descriptor?.type ?? null,
+      algorithmSubtype: descriptor?.subtype ?? null,
+      algorithmOperation: descriptor?.operation ?? null,
+    }),
+
+  runSelectedAlgorithm: async ({ values, start }) => {
+    const d = get().selectedAlgorithm;
+    if (!d) throw new Error('Elige un algoritmo del catálogo');
     set({ stepsLoading: true });
     try {
-      const res = await fetchAlgorithmSteps(type, subtype, operation, values);
+      const { structure } = engine.getState();
+      const res = await runAlgorithm({
+        type: d.type,
+        subtype: d.subtype,
+        operation: d.operation,
+        values: d.input === 'values' ? values : undefined,
+        nodes: d.input === 'structure' ? structure.nodes : undefined,
+        edges: d.input === 'structure' ? structure.edges : undefined,
+        start: d.input === 'structure' ? start : undefined,
+      });
       if (res.error || !res.steps) {
         throw new Error(res.message ?? 'Error al cargar pasos');
       }
       engine.loadTrace(res.steps);
       set({ stepsLoading: false });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error desconocido';
       set({ stepsLoading: false });
-      throw new Error(msg);
+      throw err instanceof Error ? err : new Error('Error desconocido');
     }
   },
 
