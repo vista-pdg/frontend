@@ -355,6 +355,27 @@ function linearLayout({ nodes, edges }: StructureState, opts: Required<LayoutOpt
   return out;
 }
 
+/**
+ * ¿Sirve la estructura del lienzo como entrada de un algoritmo de esta familia? (HU-22b). Un
+ * inorden no puede recorrer una cola, y un BFS sobre una pila no tiene sentido: si no encaja, el
+ * panel pide valores o una estructura nueva en vez de enviar lo que haya.
+ */
+export function structureFitsFamily(family: string, structure: StructureState): boolean {
+  if (structure.nodes.length === 0) return false;
+  switch (family) {
+    case 'tree':
+      return treeShapeOf(structure) !== null && !isStack(structure) && !isQueue(structure);
+    case 'graph':
+      return !isStack(structure) && !isQueue(structure);
+    case 'stack':
+      return isStack(structure);
+    case 'queue':
+      return isQueue(structure);
+    default:
+      return true;
+  }
+}
+
 export interface Bounds {
   minX: number;
   minY: number;

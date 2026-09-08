@@ -4,6 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useGraphStore } from '@/store/graphStore';
 import { algorithmKey } from '@/services/algorithmService';
+import { structureFitsFamily } from '@/core';
 import type { AlgorithmDescriptor } from '@/types/graph';
 import { X, FlaskConical, ChevronLeft, ChevronRight, Loader2, AlertCircle, Play } from 'lucide-react';
 
@@ -110,7 +111,9 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   // lienzo está vacío y el algoritmo sabe construir su estructura con valores (inorden → BST), se
   // ofrece el formulario de valores; si no (BFS), se pide generar primero.
   const needsStructure = selected?.input === 'structure';
-  const canvasNodes = needsStructure ? nodes : [];
+  const edges = useGraphStore((s) => s.edges);
+  const canvasFits = needsStructure && selected !== null && structureFitsFamily(selected.family, { nodes, edges });
+  const canvasNodes = canvasFits ? nodes : [];
   const canFallbackToValues = needsStructure && selectedKey !== null && DEFAULT_VALUES[selectedKey] !== undefined;
   const usesValues = selected?.input === 'values' || (needsStructure && canvasNodes.length === 0 && canFallbackToValues);
   const isGraphLike = needsStructure && selected?.type === 'graph';

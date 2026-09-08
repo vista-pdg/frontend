@@ -153,6 +153,22 @@ describe('VisualizationEngine — reenvío por el contrato', () => {
     expect(engine.getState().code).toBeNull();
   });
 
+  it('las variables y la pila de llamadas de cada paso viajan intactas por el motor (HU-22b)', () => {
+    const engine = new VisualizationEngine();
+    const steps = trace([2, 1]).map((s, i) => ({
+      ...s,
+      line: i + 1,
+      variables: { nodo: String(i), salida: '[]' },
+      callStack: [{ name: 'inorden', params: { nodo: String(i) } }],
+    }));
+    engine.loadTrace(steps, ['a', 'b']);
+    engine.next();
+    const current = engine.getState().trace[engine.getState().stepIndex];
+    expect(current.variables).toEqual({ nodo: '1', salida: '[]' });
+    expect(current.callStack).toEqual([{ name: 'inorden', params: { nodo: '1' } }]);
+    expect(engine.frames()).toHaveLength(2);
+  });
+
   it('un rastro vacío equivale a limpiar', () => {
     const engine = new VisualizationEngine();
     engine.loadStructure(bst([1]).nodes, []);
