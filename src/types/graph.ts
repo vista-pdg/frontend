@@ -69,6 +69,15 @@ export interface AlgorithmStep {
   edges: Edge3D[];
   /** Línea (1-based) del pseudocódigo que ejecuta este paso (HU-22a); nula si no está instrumentado. */
   line?: number | null;
+  /** Variables vigentes del algoritmo en este paso, ya serializadas (HU-22b). */
+  variables?: Record<string, string> | null;
+  /** Marcos activos, la base primero y el tope al final (HU-22b); nulo en algoritmos iterativos. */
+  callStack?: CallFrame[] | null;
+}
+
+export interface CallFrame {
+  name: string;
+  params: Record<string, string>;
 }
 
 export interface StepsResponse {

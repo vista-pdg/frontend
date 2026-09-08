@@ -7,6 +7,7 @@ import {
   isQueue,
   isStack,
   layout2D,
+  structureFitsFamily,
   overlappingPairs,
   treeShapeOf,
 } from '@/core';
@@ -208,6 +209,43 @@ describe('layout2D — pila y cola (HU-19)', () => {
     expect(isQueue({ nodes: [node('n0', '7', { properties: { index: 0, role: 'front' } })], edges: [] })).toBe(true);
     expect(isStack({ nodes: [node('a')], edges: [] })).toBe(false);
     expect(isQueue({ nodes: [], edges: [] })).toBe(false);
+  });
+});
+
+describe('structureFitsFamily (HU-22b)', () => {
+  const stack = {
+    nodes: [
+      node('n0', '3', { properties: { index: 0, role: 'bottom' } }),
+      node('n1', '8', { properties: { index: 1, role: 'top' } }),
+    ],
+    edges: [],
+  };
+  const queue = {
+    nodes: [node('n0', '5', { properties: { index: 0, role: 'front' } }), node('n1', '9', { properties: { index: 1, role: 'rear' } })],
+    edges: [edge('n0', 'n1')],
+  };
+
+  it('un árbol sirve para árboles y grafos; un grafo sólo para grafos', () => {
+    const tree = bst([10, 5, 15]);
+    const graph = completeGraph(4);
+    expect(structureFitsFamily('tree', tree)).toBe(true);
+    expect(structureFitsFamily('graph', tree)).toBe(true);
+    expect(structureFitsFamily('tree', graph)).toBe(false);
+    expect(structureFitsFamily('graph', graph)).toBe(true);
+  });
+
+  it('pilas y colas sólo encajan con su familia y nunca como árbol o grafo', () => {
+    expect(structureFitsFamily('stack', stack)).toBe(true);
+    expect(structureFitsFamily('queue', queue)).toBe(true);
+    expect(structureFitsFamily('tree', queue)).toBe(false);
+    expect(structureFitsFamily('graph', queue)).toBe(false);
+    expect(structureFitsFamily('graph', stack)).toBe(false);
+    expect(structureFitsFamily('stack', queue)).toBe(false);
+  });
+
+  it('el lienzo vacío no encaja con nada; una familia desconocida acepta cualquier estructura', () => {
+    expect(structureFitsFamily('tree', { nodes: [], edges: [] })).toBe(false);
+    expect(structureFitsFamily('otra', completeGraph(3))).toBe(true);
   });
 });
 

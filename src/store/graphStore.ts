@@ -5,7 +5,7 @@ import { fetchQuota } from '@/services/assistantService';
 import { ApiError } from '@/lib/http';
 import type { QuotaStatus } from '@/types/auth';
 import type { Node3D, Edge3D, GraphMeta, AlgorithmStep, AlgorithmDescriptor, HighlightType } from '@/types/graph';
-import type { EngineState, VisualizationMode } from '@/core';
+import { structureFitsFamily, type EngineState, type VisualizationMode } from '@/core';
 import { chooseMode, engine, preferredMode, webglAvailable } from '@/renderers/appEngine';
 
 export interface ChatMessage {
@@ -335,7 +335,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       const { structure } = engine.getState();
       // Con entrada `structure` se envía lo que hay en el lienzo; si no hay nada y llegan valores,
       // el algoritmo puede construir su estructura con ellos (inorden → BST).
-      const useCanvas = d.input === 'structure' && structure.nodes.length > 0;
+      const useCanvas = d.input === 'structure' && structureFitsFamily(d.family, structure);
       const res = await runAlgorithm({
         type: d.type,
         subtype: d.subtype,
