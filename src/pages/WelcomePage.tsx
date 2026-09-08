@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, Eye, EyeOff, Info, Loader2, Network } from 'lucide-react';
+import { AlertCircle, ChevronDown, Eye, EyeOff, Info, Loader2, Network } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiError } from '@/lib/http';
 import { useAuth } from '@/contexts/AuthContext';
 import { GraphMotif } from '@/components/GraphMotif';
 import { login as loginRequest, register as registerRequest } from '@/services/authService';
+import { fetchCourses } from '@/services/courseService';
+import type { CourseDto } from '@/types/auth';
 
 type Mode = 'login' | 'register';
 
@@ -14,6 +16,7 @@ const EMPTY_FORM = {
   email: '',
   password: '',
   confirmPassword: '',
+  courseCode: '',
 };
 
 export function WelcomePage() {
@@ -30,9 +33,31 @@ export function WelcomePage() {
 
   const isRegister = mode === 'register';
 
+  // Cursos del periodo activo. null = todavía no cargados; [] = cargados pero no hay ninguno.
+  const [courses, setCourses] = useState<CourseDto[] | null>(null);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
+
+  function loadCourses() {
+    setCoursesError(null);
+    setCourses(null);
+    fetchCourses()
+      .then(setCourses)
+      .catch((err: unknown) => {
+        setCourses([]);
+        setCoursesError(
+          err instanceof Error ? err.message : 'No se pudieron cargar los cursos'
+        );
+      });
+  }
+
+
   function switchMode(next: Mode) {
     if (next === mode) return;
     setMode(next);
+    // Los cursos se piden la primera vez que el usuario abre el registro, no al montar: quien sólo
+    // va a iniciar sesión no necesita esa petición. Hacerlo aquí y no en un efecto evita un
+    // setState síncrono dentro de useEffect.
+    if (next === 'register' && courses === null && coursesError === null) loadCourses();
     setGeneralError(null);
     setFieldErrors({});
     setShowPassword(false);
@@ -52,7 +77,11 @@ export function WelcomePage() {
   }
 
   const canSubmit = isRegister
-    ? form.displayName.trim() && form.email.trim() && form.password && form.confirmPassword
+    ? form.displayName.trim() &&
+      form.email.trim() &&
+      form.courseCode &&
+      form.password &&
+      form.confirmPassword
     : form.email.trim() && form.password;
 
   async function handleSubmit(event: FormEvent) {
@@ -70,6 +99,7 @@ export function WelcomePage() {
             email: form.email.trim(),
             password: form.password,
             confirmPassword: form.confirmPassword,
+            courseCode: form.courseCode,
           })
         : await loginRequest(form.email.trim(), form.password);
 
@@ -199,6 +229,20 @@ export function WelcomePage() {
               error={fieldErrors.email}
             />
 
+            {isRegister && (
+              <SelectField
+                label="Curso"
+                name="courseCode"
+                value={form.courseCode}
+                onChange={(v) => update('courseCode', v)}
+                options={courses ?? []}
+                loading={courses === null && coursesError === null}
+                loadError={coursesError}
+                onRetry={loadCourses}
+                error={fieldErrors.courseCode}
+              />
+            )}
+
             <Field
               label="Contraseña"
               name="password"
@@ -238,7 +282,8 @@ export function WelcomePage() {
               <div className="flex items-start gap-2.5 border border-primary/25 bg-primary/[0.08] p-3">
                 <Info className="size-3.5 shrink-0 text-primary-light mt-px" />
                 <p className="text-[12px] leading-[1.5] text-muted-foreground">
-                  Tu cuenta se crea con rol Estudiante. El rol Docente lo asigna un administrador.
+                  Tu cuenta se crea con rol Estudiante y queda vinculada al curso y al periodo
+                  académico activo. El rol Docente lo asigna un administrador.
                 </p>
               </div>
             )}
@@ -281,7 +326,7 @@ export function WelcomePage() {
               type="button"
               data-cy={isRegister ? 'link-to-login' : 'link-to-register'}
               onClick={() => switchMode(isRegister ? 'login' : 'register')}
-              className="font-semibold text-primary hover:underline"
+              className="font-semibold text-primary-light hover:underline"
             >
               {isRegister ? 'Ingresar' : 'Crear cuenta'}
             </button>
@@ -313,12 +358,94 @@ function Tab({
       className={cn(
         'pb-3 text-[13px] transition-colors duration-150',
         active
-          ? 'border-b-2 border-primary font-semibold text-primary'
+          ? 'border-b-2 border-primary font-semibold text-primary-light'
           : 'border-b border-border font-medium text-muted-foreground hover:text-white'
       )}
     >
       {label}
     </button>
+  );
+}
+
+function SelectField({
+  label,
+  name,
+  value,
+  onChange,
+  options,
+  loading,
+  loadError,
+  onRetry,
+  error,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: CourseDto[];
+  loading: boolean;
+  loadError: string | null;
+  onRetry: () => void;
+  error?: string;
+}) {
+  const errorId = `${name}-error`;
+  const empty = !loading && options.length === 0;
+  const placeholder = loading
+    ? 'Cargando cursos…'
+    : empty
+      ? 'No hay cursos en el periodo activo'
+      : 'Selecciona tu curso';
+  return (
+    <div className="flex flex-col gap-2">
+      <label
+        htmlFor={name}
+        className="text-[11px] font-medium uppercase tracking-[0.13em] text-muted-foreground"
+      >
+        {label}
+      </label>
+      <div className="relative">
+        <select
+          id={name}
+          name={name}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={loading || empty}
+          data-cy={`select-${name}`}
+          aria-invalid={!!error}
+          aria-describedby={error ? errorId : undefined}
+          className={cn(
+            'w-full appearance-none bg-black-main px-3 py-[11px] pr-10 text-[13px]',
+            'border transition-colors duration-150 focus:outline-none',
+            'disabled:cursor-not-allowed disabled:opacity-60',
+            value ? 'text-white' : 'text-muted-foreground',
+            error ? 'border-destructive focus:border-destructive' : 'border-border focus:border-primary/70'
+          )}
+        >
+          <option value="" disabled>
+            {placeholder}
+          </option>
+          {options.map((c) => (
+            <option key={c.code} value={c.code} className="bg-black-main text-white">
+              {c.code} · {c.name}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      </div>
+      {loadError && (
+        <p data-cy="courses-load-error" className="text-[11px] text-red-400">
+          {loadError}{' '}
+          <button type="button" onClick={onRetry} className="font-semibold text-primary-light hover:underline">
+            Reintentar
+          </button>
+        </p>
+      )}
+      {error && (
+        <p id={errorId} data-cy={`field-error-${name}`} className="text-[11px] text-red-400">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

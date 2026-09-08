@@ -10,6 +10,15 @@ export interface AuthResponse {
   email: string;
   displayName: string;
   roles: Role[];
+  /** Nulos cuando la cuenta no está vinculada a un curso (docente, administrador). */
+  courseCode: string | null;
+  termCode: string | null;
+}
+
+export interface CourseDto {
+  code: string;
+  name: string;
+  termCode: string;
 }
 
 export interface AuthUser {
@@ -31,6 +40,7 @@ export interface RegisterPayload {
   email: string;
   password: string;
   confirmPassword: string;
+  courseCode: string;
 }
 
 export interface UserDto {

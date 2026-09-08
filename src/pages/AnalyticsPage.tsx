@@ -63,7 +63,7 @@ export function AnalyticsPage() {
       <main className="flex flex-1 items-center justify-center overflow-y-auto scrollbar-custom p-8">
         <div className="flex max-w-[520px] flex-col items-center gap-6 text-center">
           <div className="flex size-14 items-center justify-center border border-border bg-card">
-            <BarChart3 className="size-6 text-primary" />
+            <BarChart3 className="size-6 text-primary-light" />
           </div>
 
           <div className="flex flex-col gap-3">

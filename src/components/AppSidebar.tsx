@@ -162,14 +162,14 @@ export function AppSidebar() {
                     'border-l-2',
                     collapsed ? 'justify-center px-0' : 'justify-start px-3',
                     isActive
-                      ? 'bg-primary/12 text-primary border-l-primary'
+                      ? 'bg-primary/12 text-primary-light border-l-primary'
                       : 'text-muted-foreground hover:bg-white/5 hover:text-white border-l-transparent'
                   )}
                 >
                   <Icon
                     className={cn(
                       'size-4 shrink-0 transition-colors duration-150',
-                      isActive ? 'text-primary' : ''
+                      isActive ? 'text-primary-light' : ''
                     )}
                   />
                   {!collapsed && (
@@ -201,7 +201,7 @@ export function AppSidebar() {
                             className={cn(
                               'flex-1 flex items-center gap-2 py-2 px-3 text-[12px] transition-all duration-150 border-l-2',
                               isSubActive
-                                ? 'bg-primary/10 text-primary border-l-primary'
+                                ? 'bg-primary/10 text-primary-light border-l-primary'
                                 : 'text-muted-foreground hover:bg-white/5 hover:text-white border-l-transparent'
                             )}
                           >
@@ -252,7 +252,7 @@ export function AppSidebar() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[11px] font-bold text-primary tracking-widest uppercase">
+                  <span className="text-[11px] font-bold text-primary-light tracking-widest uppercase">
                     {meta.type}
                   </span>
                   {meta.subtype && (
@@ -295,7 +295,7 @@ export function AppSidebar() {
             {collapsed ? (
               <>
                 <div
-                  className="size-7 bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary shrink-0"
+                  className="size-7 bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-light shrink-0"
                   title={user.displayName}
                 >
                   {user.displayName[0]?.toUpperCase()}
@@ -304,7 +304,7 @@ export function AppSidebar() {
                   <Link
                     to="/analytics"
                     data-cy="sidebar-analytics"
-                    className="text-muted-foreground hover:text-primary transition-colors duration-150"
+                    className="text-muted-foreground hover:text-primary-light transition-colors duration-150"
                     title="Panel analítico"
                   >
                     <BarChart3 className="size-3.5" />
@@ -329,7 +329,7 @@ export function AppSidebar() {
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <div className="size-7 bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                <div className="size-7 bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-light shrink-0">
                   {user.displayName[0]?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -341,7 +341,7 @@ export function AppSidebar() {
                     <Link
                       to="/analytics"
                       data-cy="sidebar-analytics"
-                      className="text-muted-foreground hover:text-primary transition-colors duration-150 p-1"
+                      className="text-muted-foreground hover:text-primary-light transition-colors duration-150 p-1"
                       title="Panel analítico"
                     >
                       <BarChart3 className="size-3.5" />

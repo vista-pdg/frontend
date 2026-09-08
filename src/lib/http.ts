@@ -98,6 +98,13 @@ http.interceptors.response.use(
       }
     }
 
+    // Un 401 sin token de refresco con el que reintentar significa que la sesión local es
+    // inconsistente o fue manipulada: se limpia para que el guard devuelva al inicio de sesión
+    // (HU-16 CA-3) en lugar de dejar una pantalla que ya no puede pedir nada.
+    if (status === 401 && original && !isAuthEndpoint(original.url) && !session.refreshToken()) {
+      session.clear();
+    }
+
     return Promise.reject(toApiError(error));
   }
 );
