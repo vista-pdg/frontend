@@ -44,6 +44,7 @@ describe('CA-1 · Registro e inicio de sesion en la pantalla de bienvenida', () 
       cy.get('[data-cy=tab-register]').click();
       cy.get('[data-cy=input-displayName]').type('Ana Restrepo');
       cy.get('[data-cy=input-email]').type(email);
+      cy.get('[data-cy=select-courseCode]').select('CEDI-G1');
       cy.get('[data-cy=input-password]').type('clave12345');
       cy.get('[data-cy=input-confirmPassword]').type('clave12345');
       cy.get('[data-cy=submit]').click();
@@ -61,6 +62,7 @@ describe('CA-1 · Registro e inicio de sesion en la pantalla de bienvenida', () 
     cy.get('[data-cy=tab-register]').click();
     cy.get('[data-cy=input-displayName]').type('Externa');
     cy.get('[data-cy=input-email]').type('ana@gmail.com');
+      cy.get('[data-cy=select-courseCode]').select('CEDI-G1');
     cy.get('[data-cy=input-password]').type('clave12345');
     cy.get('[data-cy=input-confirmPassword]').type('clave12345');
     cy.get('[data-cy=submit]').click();
@@ -76,6 +78,7 @@ describe('CA-1 · Registro e inicio de sesion en la pantalla de bienvenida', () 
       cy.get('[data-cy=tab-register]').click();
       cy.get('[data-cy=input-displayName]').type('Ana');
       cy.get('[data-cy=input-email]').type(email);
+      cy.get('[data-cy=select-courseCode]').select('CEDI-G1');
       cy.get('[data-cy=input-password]').type('clave12345');
       cy.get('[data-cy=input-confirmPassword]').type('otraclave');
       cy.get('[data-cy=submit]').click();
@@ -88,6 +91,7 @@ describe('CA-1 · Registro e inicio de sesion en la pantalla de bienvenida', () 
     cy.get('[data-cy=tab-register]').click();
     cy.get('[data-cy=input-displayName]').type('Externa');
     cy.get('[data-cy=input-email]').type('ana@gmail.com');
+      cy.get('[data-cy=select-courseCode]').select('CEDI-G1');
     cy.get('[data-cy=input-password]').type('clave12345');
     cy.get('[data-cy=input-confirmPassword]').type('clave12345');
     cy.get('[data-cy=submit]').click();
@@ -101,6 +105,7 @@ describe('CA-1 · Registro e inicio de sesion en la pantalla de bienvenida', () 
     cy.get('[data-cy=tab-register]').click();
     cy.get('[data-cy=input-displayName]').type('Duplicada');
     cy.get('[data-cy=input-email]').type(SEEDED.student.email);
+      cy.get('[data-cy=select-courseCode]').select('CEDI-G1');
     cy.get('[data-cy=input-password]').type('clave12345');
     cy.get('[data-cy=input-confirmPassword]').type('clave12345');
     cy.get('[data-cy=submit]').click();
