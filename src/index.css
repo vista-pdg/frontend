@@ -68,6 +68,19 @@
   --sidebar-ring: #5454e9;
 }
 
+/* Chrome pinta los campos autocompletados con su propio fondo claro, que sobre este tema oscuro
+   deja el formulario a medio pintar. El box-shadow interior es la unica forma de sobreescribirlo:
+   -webkit-autofill ignora background-color. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #ffffff;
+  -webkit-box-shadow: 0 0 0 1000px #000000 inset;
+  caret-color: #ffffff;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
 html,
 body,
 #root {

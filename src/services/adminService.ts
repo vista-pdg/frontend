@@ -7,11 +7,7 @@ import type {
   UserDto,
 } from '@/types/auth';
 
-// Auth
-export async function login(email: string, password: string) {
-  const res = await http.post('/auth/login', { email, password });
-  return res.data;
-}
+// El login vive en authService: es el único que sabe guardar la sesión tras autenticarse.
 
 // Users
 export async function fetchUsers(): Promise<UserDto[]> {

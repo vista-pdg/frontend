@@ -124,8 +124,13 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    // El .catch importa: sin el, un fallo de carga se convierte en un rechazo de promesa sin
+    // manejar que ni el usuario ve ni la consola explica.
     fetchUsers()
       .then(setUsers)
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'No se pudieron cargar los usuarios')
+      )
       .finally(() => setLoading(false));
   }, []);
 
