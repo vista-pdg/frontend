@@ -53,6 +53,7 @@ export class VisualizationEngine {
       stepIndex: 0,
       meta: null,
       trace: [],
+      code: null,
       mode: requested === '3D' && !webglAvailable ? '2D' : requested,
       webglAvailable,
     };
@@ -99,17 +100,19 @@ export class VisualizationEngine {
       stepIndex: 0,
       meta,
       trace: [],
+      code: null,
     };
     this.paint();
     this.emit();
   }
 
-  loadTrace(steps: ExecutionStep[]): void {
+  /** Carga un rastro y, si el algoritmo está instrumentado (HU-22a), su pseudocódigo. */
+  loadTrace(steps: ExecutionStep[], code: string[] | null = null): void {
     if (steps.length === 0) {
       this.clear();
       return;
     }
-    this.state = { ...this.state, trace: steps, meta: null, ...frameOf(steps[0], 0) };
+    this.state = { ...this.state, trace: steps, code, meta: null, ...frameOf(steps[0], 0) };
     this.paint();
     this.emit();
   }
@@ -150,6 +153,7 @@ export class VisualizationEngine {
       stepIndex: 0,
       meta: null,
       trace: [],
+      code: null,
     };
     this.activeRenderer()?.clear();
     this.emit();

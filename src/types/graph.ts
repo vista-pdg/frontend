@@ -67,10 +67,15 @@ export interface AlgorithmStep {
   rotationType: string | null;
   nodes: Node3D[];
   edges: Edge3D[];
+  /** Línea (1-based) del pseudocódigo que ejecuta este paso (HU-22a); nula si no está instrumentado. */
+  line?: number | null;
 }
 
 export interface StepsResponse {
   error: boolean;
   message: string | null;
   steps: AlgorithmStep[] | null;
+  /** Pseudocódigo del algoritmo (HU-22a); nulo si no está instrumentado. */
+  code?: string[] | null;
+  language?: string | null;
 }

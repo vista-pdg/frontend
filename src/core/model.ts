@@ -38,6 +38,8 @@ export interface RenderFrame {
 export interface EngineState extends RenderFrame {
   meta: GraphMeta | null;
   trace: ExecutionStep[];
+  /** Pseudocódigo del rastro cargado (HU-22a). El motor lo guarda; no lo interpreta. */
+  code: string[] | null;
   mode: VisualizationMode;
   webglAvailable: boolean;
 }
