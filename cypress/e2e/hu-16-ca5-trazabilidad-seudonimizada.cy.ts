@@ -17,7 +17,14 @@ import { SEEDED } from '../support/commands';
 describe('HU-16 · CA-5 Trazabilidad seudonimizada por cohorte', () => {
   const SUMMARY = '/api/analytics/summary';
 
-  function teacherSummary(): Cypress.Chainable<Record<string, any>> {
+  interface Summary {
+    totalGenerations: number;
+    distinctUsers: number;
+    generationsByCourse: Record<string, number>;
+    generationsByStructureType: Record<string, number>;
+  }
+
+  function teacherSummary(): Cypress.Chainable<Summary> {
     return cy
       .request('POST', '/api/auth/login', {
         email: SEEDED.teacher.email,
@@ -46,7 +53,7 @@ describe('HU-16 · CA-5 Trazabilidad seudonimizada por cohorte', () => {
 
   it('generar en el lienzo incrementa la cohorte CEDI-G1 sin exponer correo ni nombre', () => {
     teacherSummary().then((before) => {
-      const base: number = before.generationsByCourse['CEDI-G1'] ?? 0;
+      const base = before.generationsByCourse['CEDI-G1'] ?? 0;
 
       cy.loginByApi(SEEDED.student.email, SEEDED.student.password);
       cy.intercept('POST', '/api/generate').as('generate');

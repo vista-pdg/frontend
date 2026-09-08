@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Typecheck, build y lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Build
+        run: npm run build
+
+      # Informativo, no bloqueante, mientras sigan los 11 hallazgos preexistentes en los componentes
+      # 3D (CanvasOverlay, NodeSphere, GraphScene). Ninguna HU los ha tocado todavía; el día que se
+      # salden, este paso pasa a bloquear quitando continue-on-error.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+  # El flujo compartido levanta el backend de main con este frontend y corre Cypress en Chromium y
+  # Firefox, los dos navegadores que exige la Definición de Terminado.
+  e2e:
+    name: E2E con el backend en main
+    needs: quality
+    uses: vista-pdg/dev-workflow/.github/workflows/e2e.yml@main
+    with:
+      backend-ref: main
+      frontend-ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    secrets:
+      VISTA_REPO_TOKEN: ${{ secrets.VISTA_REPO_TOKEN }}
