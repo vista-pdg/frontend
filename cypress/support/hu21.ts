@@ -56,27 +56,13 @@ export function teacherRetries(
   );
 }
 
-/**
- * Escribe la instrucción en el campo del chat y confirma que quedó entera.
- *
- * <p>El panel se refresca justo después de cada respuesta —llega el mensaje, se renueva la sesión,
- * se repinta la cuenta atrás— y escribir a la velocidad de Cypress en medio de ese repintado pierde
- * alguna tecla. Una persona escribiendo a su ritmo no lo nota, pero la prueba acabaría enviando una
- * instrucción distinta de la que dice, y entonces no probaría lo que cree. Se vuelve a escribir
- * hasta que el campo contenga exactamente el texto, y si no se consigue la aserción final falla.
- */
-function typePrompt(prompt: string, attemptsLeft = 5) {
-  cy.get('[data-cy=chat-input]').should('not.be.disabled').clear().type(prompt);
-  cy.get('[data-cy=chat-input]').then(($input) => {
-    if ($input.val() !== prompt && attemptsLeft > 1) typePrompt(prompt, attemptsLeft - 1);
-  });
-}
-
 /** Envía una instrucción al asistente esperando que el backend la acepte o la rechace. */
 export function ask(prompt: string, alias: string, expectedStatus = 200) {
   cy.intercept('POST', '/api/generate').as(alias);
   cy.get('[data-cy=quota-counter]').should('be.visible');
-  typePrompt(prompt);
+  cy.get('[data-cy=chat-input]').should('not.be.disabled').clear().type(prompt);
+  // Se confirma lo escrito antes de enviarlo: una prueba que envía otra instrucción de la que dice
+  // no prueba lo que cree. Ver `fix-chat-conserva-lo-escrito`.
   cy.get('[data-cy=chat-input]').should('have.value', prompt);
   cy.get('[data-cy=chat-send]').should('not.be.disabled').click();
   cy.wait(`@${alias}`).its('response.statusCode').should('eq', expectedStatus);

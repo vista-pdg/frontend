@@ -157,9 +157,28 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         ? 'text-yellow-main'
         : 'text-muted-foreground';
 
-  const [input, setInput] = useState('');
+  /**
+   * El texto que se está escribiendo vive en el DOM, no en el estado de React.
+   *
+   * <p>Con el campo gobernado por el estado, cada repintado del panel devolvía el campo al último
+   * valor confirmado, y como al llegar una respuesta el panel repinta varias veces seguidas —el
+   * mensaje nuevo, la sesión renovada, la cuenta atrás—, quien seguía escribiendo perdía teclas. El
+   * navegador ya sabe guardar lo que se teclea; lo único que React necesita saber es si hay algo
+   * escrito, para habilitar el botón de enviar, y eso es un booleano que cambia dos veces por
+   * mensaje en vez de una vez por tecla.
+   */
+  const [hasText, setHasText] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  /** Escribe en el campo desde fuera (una sugerencia) sin devolverle el gobierno a React. */
+  function fillInput(text: string) {
+    const field = textareaRef.current;
+    if (!field) return;
+    field.value = text;
+    setHasText(text.trim().length > 0);
+    field.focus();
+  }
 
   const subtypeKey = activeStructureType && activeSubtype
     ? `${activeStructureType}/${activeSubtype}`
@@ -182,9 +201,9 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   }, [messages, loading]);
 
   async function submit() {
-    const prompt = input.trim();
+    const prompt = (textareaRef.current?.value ?? '').trim();
     if (!prompt || loading || assistantBlocked) return;
-    setInput('');
+    fillInput('');
     await sendPrompt(prompt);
     textareaRef.current?.focus();
   }
@@ -326,10 +345,8 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
             <button
               key={s}
               type="button"
-              onClick={() => {
-                setInput(s);
-                textareaRef.current?.focus();
-              }}
+              data-cy="chat-suggestion"
+              onClick={() => fillInput(s)}
               className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] text-primary-light hover:bg-primary/20 transition-colors duration-150 cursor-pointer"
             >
               {s}
@@ -401,8 +418,10 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
       >
         <Textarea
           ref={textareaRef}
-          value={input}
-          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
+          defaultValue=""
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+            setHasText(e.target.value.trim().length > 0)
+          }
           onKeyDown={handleKey}
           placeholder={
             exhausted
@@ -420,7 +439,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           type="submit"
           size={rateLimited ? 'sm' : 'icon'}
           data-cy="chat-send"
-          disabled={loading || !input.trim() || exhausted || rateLimited}
+          disabled={loading || !hasText || exhausted || rateLimited}
           className="self-end bg-primary hover:bg-primary-light text-white shrink-0 transition-colors duration-150 disabled:opacity-45"
         >
           {rateLimited ? (
