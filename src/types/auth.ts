@@ -102,3 +102,14 @@ export interface CreateRoleRequest {
   name: string;
   permissionIds: number[];
 }
+
+/**
+ * Estado de la sesión de trabajo del asistente (HU-32). `available` distingue «no hay sesión» de
+ * «la memoria no está disponible»: sin Redis el asistente sigue generando, pero deja de recordar.
+ */
+export interface SessionStatus {
+  available: boolean;
+  active: boolean;
+  structureType: string | null;
+  secondsRemaining: number;
+}

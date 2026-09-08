@@ -141,6 +141,7 @@ export function CanvasOverlay({ chatOpen, onToggleChat, onToggleAlgorithm, algor
         {hasContent && (
           <button
             onClick={clearAll}
+            data-cy="clear-canvas"
             className="flex items-center gap-1.5 bg-black-main/85 border border-border hover:border-destructive/50 hover:text-destructive px-2.5 py-2 text-muted-foreground transition-colors duration-150 backdrop-blur-md"
             title="Limpiar lienzo y chat"
           >

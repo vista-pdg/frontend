@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useGraphStore } from '@/store/graphStore';
-import { SendHorizonal, X, Trash2, TriangleAlert, CircleAlert, Timer } from 'lucide-react';
+import { SendHorizonal, X, Trash2, TriangleAlert, CircleAlert, Timer, Brain, BrainCircuit } from 'lucide-react';
 
 const SUGGESTIONS_BY_TYPE: Record<string, string[]> = {
   graph: [
@@ -92,11 +92,21 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   const rateLimitUntil = useGraphStore((s) => s.rateLimitUntil);
   const loadQuota = useGraphStore((s) => s.loadQuota);
   const clearAssistantBlock = useGraphStore((s) => s.clearAssistantBlock);
+  const session = useGraphStore((s) => s.session);
+  const sessionExpiresAt = useGraphStore((s) => s.sessionExpiresAt);
+  const memoryAvailable = useGraphStore((s) => s.memoryAvailable);
+  const loadSession = useGraphStore((s) => s.loadSession);
 
   // El contador se pide al abrir el panel (CA-5: al entrar, 40 de 40), no al montar la app.
   useEffect(() => {
     if (open) void loadQuota();
   }, [open, loadQuota]);
+
+  // HU-32: al abrir el panel se consulta qué recuerda la sesión, para decir de entrada si el
+  // siguiente mensaje va a refinar algo o a empezar de cero.
+  useEffect(() => {
+    if (open) void loadSession();
+  }, [open, loadSession]);
 
   // Cuenta regresiva del bloqueo por ráfaga. Los segundos se DERIVAN del instante en que vence en
   // cada render —no se guardan en estado— para que el primer pintado ya muestre el valor correcto y
@@ -108,6 +118,20 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [assistantBlocked, rateLimitUntil]);
+
+  // La cuenta atrás de la sesión (HU-32) se mide en minutos: basta con refrescar cada 20 s. El
+  // primer refresco se programa para el tick siguiente —no dentro del efecto— porque `now` puede
+  // venir de antes de que se calculara la caducidad, y con un reloj atrasado el panel llegaría a
+  // anunciar un minuto de más.
+  useEffect(() => {
+    if (!open || !sessionExpiresAt) return;
+    const first = window.setTimeout(() => setNow(Date.now()), 0);
+    const id = window.setInterval(() => setNow(Date.now()), 20_000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
+  }, [open, sessionExpiresAt]);
   const secondsLeft =
     assistantBlocked === 'rate' && rateLimitUntil
       ? Math.max(0, Math.ceil((rateLimitUntil - now) / 1000))
@@ -115,6 +139,12 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   useEffect(() => {
     if (assistantBlocked === 'rate' && rateLimitUntil && secondsLeft === 0) clearAssistantBlock();
   }, [assistantBlocked, rateLimitUntil, secondsLeft, clearAssistantBlock]);
+
+  // Los segundos se derivan en el render: el minuto que se muestra nunca va por detrás del reloj.
+  const sessionMinutesLeft = sessionExpiresAt
+    ? Math.max(0, Math.ceil((sessionExpiresAt - now) / 60_000))
+    : 0;
+  const sessionActive = Boolean(session?.active && sessionMinutesLeft > 0);
 
   const exhausted = assistantBlocked === 'daily';
   const rateLimited = assistantBlocked === 'rate';
@@ -170,6 +200,8 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
 
   return (
     <div
+      data-cy="chat-panel"
+      data-open={open ? 'true' : 'false'}
       className={cn(
         'flex flex-col h-full border-l border-border bg-black-main shrink-0',
         'transition-all duration-300 ease-in-out overflow-hidden',
@@ -191,6 +223,17 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
                 className={cn('text-[11px] font-medium tracking-[0.02em] leading-tight', counterClass)}
               >
                 {counterText}
+              </span>
+            )}
+            {sessionActive && (
+              <span
+                data-cy="session-indicator"
+                data-structure={session?.structureType ?? ''}
+                title="El asistente recuerda la estructura del lienzo: puedes pedirle cambios sobre ella"
+                className="flex items-center gap-1 text-[10px] leading-tight text-secondary"
+              >
+                <BrainCircuit className="size-3 shrink-0" />
+                Sesión activa · caduca en {sessionMinutesLeft} min
               </span>
             )}
           </div>
@@ -219,6 +262,22 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           </button>
         </div>
       </div>
+
+      {/* HU-32 · CA-8: la memoria se cayó. No bloquea: sólo explica por qué deja de recordar. */}
+      {!memoryAvailable && (
+        <div
+          role="status"
+          data-cy="memory-unavailable"
+          className="flex items-start gap-2 border-b border-yellow-main/30 bg-yellow-main/[0.08] px-4 py-2.5 shrink-0"
+        >
+          <Brain className="mt-px size-3.5 shrink-0 text-yellow-main" />
+          <p className="text-[11px] leading-[1.5] text-muted-foreground">
+            <span className="text-yellow-main">La memoria de la sesión no está disponible.</span>{' '}
+            Puedes seguir generando, pero cada instrucción se interpreta desde cero: describe la
+            estructura completa.
+          </p>
+        </div>
+      )}
 
       {/* Messages */}
       <ScrollArea className="flex-1 min-h-0 px-3 py-3 scrollbar-custom">

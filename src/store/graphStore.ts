@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import { generateGraphWithQuota } from '@/services/graphService';
 import { algorithmKey, fetchCatalog, runAlgorithm } from '@/services/algorithmService';
-import { fetchQuota } from '@/services/assistantService';
+import { clearSession, fetchQuota, fetchSessionStatus } from '@/services/assistantService';
 import { ApiError } from '@/lib/http';
-import type { QuotaStatus } from '@/types/auth';
+import type { QuotaStatus, SessionStatus } from '@/types/auth';
 import type { Node3D, Edge3D, GraphMeta, AlgorithmStep, AlgorithmDescriptor, HighlightType } from '@/types/graph';
 import { structureFitsFamily, type EngineState, type VisualizationMode } from '@/core';
 import { chooseMode, engine, preferredMode, webglAvailable } from '@/renderers/appEngine';
@@ -76,6 +76,14 @@ interface GraphState extends VisualizationMirror {
   assistantBlocked: 'daily' | 'rate' | null;
   /** Instante (ms) en que termina el bloqueo por ráfaga; la UI pinta la cuenta regresiva. */
   rateLimitUntil: number | null;
+
+  // Memoria conversacional (HU-32)
+  /** Sesión de trabajo del servidor: qué recuerda y cuánto le queda. */
+  session: SessionStatus | null;
+  /** Instante (ms) en que caduca la sesión; permite pintar la cuenta atrás sin volver a preguntar. */
+  sessionExpiresAt: number | null;
+  /** Falso cuando el servidor no pudo recordar (Redis caído): el aviso de degradación. */
+  memoryAvailable: boolean;
   cameraResetKey: number;
 
   // Modo de visualización (HU-18)
@@ -101,6 +109,8 @@ interface GraphState extends VisualizationMirror {
   setChatOpen: (open: boolean) => void;
   loadQuota: () => Promise<void>;
   clearAssistantBlock: () => void;
+  /** Consulta la sesión del asistente; se llama al abrir el chat y tras cada mensaje (HU-32). */
+  loadSession: () => Promise<void>;
   toggleAutoRotate: () => void;
   resetCamera: () => void;
   /** Cambia de modo conservando la estructura y el paso. Devuelve falso si el modo no está disponible. */
@@ -132,6 +142,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   quota: null,
   assistantBlocked: null,
   rateLimitUntil: null,
+  session: null,
+  sessionExpiresAt: null,
+  memoryAvailable: true,
   cameraResetKey: 0,
   webglAvailable,
   webglNoticeVisible: !webglAvailable && preferredMode !== '2D',
@@ -157,7 +170,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     }));
 
     try {
-      const { structure: result, quota: fromHeaders } = await generateGraphWithQuota(prompt);
+      const { structure: result, quota: fromHeaders, memory } = await generateGraphWithQuota(prompt);
       const { meta } = result;
 
       const typeLabel = meta?.type ? (TYPE_LABELS[meta.type] ?? meta.type) : 'Estructura';
@@ -189,9 +202,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         : prev;
 
       engine.loadStructure(result.nodes, result.edges, result.meta);
+      // HU-32: la sesión acaba de renovarse en el servidor; se refresca para pintar la cuenta atrás.
+      if (memory !== false) void get().loadSession();
       set((s) => ({
         loading: false,
         quota,
+        memoryAvailable: memory === null ? get().memoryAvailable : memory,
+        session: memory === false ? null : get().session,
+        sessionExpiresAt: memory === false ? null : get().sessionExpiresAt,
         assistantBlocked: quota && quota.remaining === 0 ? 'daily' : null,
         messages: [
           ...s.messages,
@@ -247,10 +265,15 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   clearAll: () => {
     engine.clear();
+    // HU-32 · CA-7: limpiar el lienzo es olvidar también en el servidor. Si Redis no está, el
+    // borrado falla en silencio: la sesión que no existe no hay que borrarla.
+    void clearSession().catch(() => undefined);
     set({
       messages: [WELCOME_MSG],
       activeStructureType: null,
       activeSubtype: null,
+      session: null,
+      sessionExpiresAt: null,
     });
   },
 
@@ -265,6 +288,19 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       set({ quota, assistantBlocked: quota.remaining === 0 ? 'daily' : get().assistantBlocked });
     } catch {
       /* sin contador no se bloquea nada: el servidor sigue siendo la barrera */
+    }
+  },
+
+  loadSession: async () => {
+    try {
+      const session = await fetchSessionStatus();
+      set({
+        session,
+        sessionExpiresAt: session.active ? Date.now() + session.secondsRemaining * 1000 : null,
+        memoryAvailable: session.available,
+      });
+    } catch {
+      /* el estado de la sesión es informativo: si no se puede leer, no se bloquea nada */
     }
   },
 

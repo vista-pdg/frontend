@@ -53,6 +53,13 @@ que conserva el lado de los hijos), pilas (columna con base y tope) y colas (fil
 final)— con la misma paleta que el 3D y etiquetas negras o blancas según el relleno (AA). Cada nodo
 y arista lleva texto alterno.
 
+## Memoria conversacional
+
+Durante la sesión de trabajo el asistente recuerda la estructura vigente: se puede pedir «ahora
+inserta el 7» o «hazlo dirigido» sin volver a describirla. El panel del chat lo anuncia («Sesión
+activa · caduca en 30 min»), «Limpiar» la olvida también en el servidor, y si la memoria no está
+disponible aparece un aviso no bloqueante en vez de fallar en silencio.
+
 ## Algoritmos paso a paso
 
 El panel de algoritmos lista el catálogo que sirve `GET /api/algorithm/catalog`, agrupado por
