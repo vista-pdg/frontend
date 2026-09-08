@@ -27,6 +27,10 @@ declare global {
       uniqueEmail(prefix?: string): Chainable<string>;
       /** Autentica por API y deja la sesion lista, sin pasar por el formulario. */
       loginByApi(email: string, password: string): Chainable<void>;
+      /** Registra un estudiante nuevo por API, deja la sesion lista y devuelve su correo. */
+      registerStudentByApi(prefix?: string, courseCode?: string): Chainable<string>;
+      /** Cambia la cuota diaria de un curso como administrador (HU-17). */
+      adminSetQuota(courseCode: string, dailyQuota: number): Chainable<void>;
       storedSession(): Chainable<{
         accessToken: string | null;
         refreshToken: string | null;
@@ -65,5 +69,41 @@ Cypress.Commands.add('storedSession', () => {
       refreshToken: win.localStorage.getItem(REFRESH_KEY),
       user: raw ? JSON.parse(raw) : null,
     };
+  });
+});
+
+Cypress.Commands.add('registerStudentByApi', (prefix = 'e2e', courseCode = 'CEDI-G1') => {
+  const email = `${prefix}.${Date.now()}.${Math.floor(Math.random() * 1000)}@u.icesi.edu.co`;
+  return cy
+    .request('POST', '/api/auth/register', {
+      displayName: `E2E ${prefix}`,
+      email,
+      password: 'clave12345',
+      confirmPassword: 'clave12345',
+      courseCode,
+    })
+    .then(({ body }) =>
+      cy.window().then((win) => {
+        win.localStorage.setItem(ACCESS_KEY, body.accessToken);
+        win.localStorage.setItem(REFRESH_KEY, body.refreshToken);
+        win.localStorage.setItem(
+          USER_KEY,
+          JSON.stringify({ email: body.email, displayName: body.displayName, roles: body.roles })
+        );
+        return email;
+      })
+    );
+});
+
+Cypress.Commands.add('adminSetQuota', (courseCode: string, dailyQuota: number) => {
+  cy.request('POST', '/api/auth/login', SEEDED.admin).then(({ body }) => {
+    cy.request({
+      method: 'PUT',
+      url: `/api/admin/courses/${courseCode}/quota`,
+      headers: { Authorization: `Bearer ${body.accessToken}` },
+      body: { dailyQuota },
+    })
+      .its('status')
+      .should('eq', 200);
   });
 });

@@ -88,24 +88,23 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     if (open) void loadQuota();
   }, [open, loadQuota]);
 
-  // Cuenta regresiva del bloqueo por ráfaga: se recalcula cada segundo a partir del instante en que
-  // vence, no decrementando un contador, para que un tab en segundo plano no la desincronice.
-  const [secondsLeft, setSecondsLeft] = useState(0);
+  // Cuenta regresiva del bloqueo por ráfaga. Los segundos se DERIVAN del instante en que vence en
+  // cada render —no se guardan en estado— para que el primer pintado ya muestre el valor correcto y
+  // un tab en segundo plano no la desincronice. El intervalo sólo fuerza un re-render por segundo.
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (assistantBlocked !== 'rate' || !rateLimitUntil) return;
-    const tick = () => {
-      const left = Math.ceil((rateLimitUntil - Date.now()) / 1000);
-      if (left <= 0) {
-        setSecondsLeft(0);
-        clearAssistantBlock();
-      } else {
-        setSecondsLeft(left);
-      }
-    };
-    tick();
-    const id = window.setInterval(tick, 1000);
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
-  }, [assistantBlocked, rateLimitUntil, clearAssistantBlock]);
+  }, [assistantBlocked, rateLimitUntil]);
+  const secondsLeft =
+    assistantBlocked === 'rate' && rateLimitUntil
+      ? Math.max(0, Math.ceil((rateLimitUntil - now) / 1000))
+      : 0;
+  useEffect(() => {
+    if (assistantBlocked === 'rate' && rateLimitUntil && secondsLeft === 0) clearAssistantBlock();
+  }, [assistantBlocked, rateLimitUntil, secondsLeft, clearAssistantBlock]);
 
   const exhausted = assistantBlocked === 'daily';
   const rateLimited = assistantBlocked === 'rate';

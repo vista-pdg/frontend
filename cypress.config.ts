@@ -12,5 +12,8 @@ export default defineConfig({
     video: false,
     screenshotOnRunFailure: true,
     retries: { runMode: 1, openMode: 0 },
+    // Las cabeceras son "sticky": si Cypress desplaza el objetivo al borde superior antes de un
+    // clic, la cabecera lo cubre. Centrarlo evita el "covered by another element" en Chromium.
+    scrollBehavior: 'center',
   },
 });
