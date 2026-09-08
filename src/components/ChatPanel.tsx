@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useGraphStore } from '@/store/graphStore';
-import { SendHorizonal, X, Trash2 } from 'lucide-react';
+import { SendHorizonal, X, Trash2, TriangleAlert, CircleAlert, Timer } from 'lucide-react';
 
 const SUGGESTIONS_BY_TYPE: Record<string, string[]> = {
   graph: [
@@ -77,6 +77,45 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   const activeStructureType = useGraphStore((s) => s.activeStructureType);
   const activeSubtype = useGraphStore((s) => s.activeSubtype);
   const clearAll = useGraphStore((s) => s.clearAll);
+  const quota = useGraphStore((s) => s.quota);
+  const assistantBlocked = useGraphStore((s) => s.assistantBlocked);
+  const rateLimitUntil = useGraphStore((s) => s.rateLimitUntil);
+  const loadQuota = useGraphStore((s) => s.loadQuota);
+  const clearAssistantBlock = useGraphStore((s) => s.clearAssistantBlock);
+
+  // El contador se pide al abrir el panel (CA-5: al entrar, 40 de 40), no al montar la app.
+  useEffect(() => {
+    if (open) void loadQuota();
+  }, [open, loadQuota]);
+
+  // Cuenta regresiva del bloqueo por ráfaga. Los segundos se DERIVAN del instante en que vence en
+  // cada render —no se guardan en estado— para que el primer pintado ya muestre el valor correcto y
+  // un tab en segundo plano no la desincronice. El intervalo sólo fuerza un re-render por segundo.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (assistantBlocked !== 'rate' || !rateLimitUntil) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [assistantBlocked, rateLimitUntil]);
+  const secondsLeft =
+    assistantBlocked === 'rate' && rateLimitUntil
+      ? Math.max(0, Math.ceil((rateLimitUntil - now) / 1000))
+      : 0;
+  useEffect(() => {
+    if (assistantBlocked === 'rate' && rateLimitUntil && secondsLeft === 0) clearAssistantBlock();
+  }, [assistantBlocked, rateLimitUntil, secondsLeft, clearAssistantBlock]);
+
+  const exhausted = assistantBlocked === 'daily';
+  const rateLimited = assistantBlocked === 'rate';
+  const counterText = quota ? `${quota.remaining} mensajes restantes hoy` : '';
+  const counterClass = !quota
+    ? 'text-muted-foreground'
+    : quota.remaining === 0
+      ? 'text-red-400'
+      : quota.warning
+        ? 'text-yellow-main'
+        : 'text-muted-foreground';
 
   const [input, setInput] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
@@ -104,7 +143,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
 
   async function submit() {
     const prompt = input.trim();
-    if (!prompt || loading) return;
+    if (!prompt || loading || assistantBlocked) return;
     setInput('');
     await sendPrompt(prompt);
     textareaRef.current?.focus();
@@ -132,9 +171,19 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
       <div className="flex items-center justify-between gap-2 border-b border-border bg-primary/10 px-4 py-3 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <span className="size-2 rounded-full bg-secondary shadow-[0_0_6px_#4cb979] shrink-0 animate-pulse" />
-          <span className="text-sm font-semibold tracking-wide text-white truncate">
-            StructureAI
-          </span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-semibold tracking-wide text-white truncate">
+              StructureAI
+            </span>
+            {counterText && (
+              <span
+                data-cy="quota-counter"
+                className={cn('text-[11px] font-medium tracking-[0.02em] leading-tight', counterClass)}
+              >
+                {counterText}
+              </span>
+            )}
+          </div>
           {activeStructureType && (
             <span className="px-1.5 py-0.5 text-[10px] bg-primary/20 text-primary-light uppercase tracking-wider shrink-0">
               {activeSubtype ?? activeStructureType}
@@ -220,6 +269,59 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         </div>
       )}
 
+      {/* HU-17: estado de la cuota. Una franja, nunca un modal: el lienzo sigue utilizable. */}
+      {exhausted && (
+        <div
+          data-cy="quota-exhausted"
+          role="status"
+          className="flex items-start gap-2.5 border-t border-destructive/40 bg-destructive/10 px-3 py-2.5 shrink-0"
+        >
+          <CircleAlert className="mt-px size-3.5 shrink-0 text-red-400" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[12px] font-semibold leading-snug text-red-400">
+              Alcanzaste tu límite diario. Se restablece a medianoche.
+            </span>
+            <span className="text-[11px] leading-snug text-muted-foreground">
+              Puedes seguir explorando la estructura actual en el lienzo.
+            </span>
+          </div>
+        </div>
+      )}
+      {rateLimited && (
+        <div
+          data-cy="rate-limited"
+          role="status"
+          className="flex items-start gap-2.5 border-t border-orange-main/40 bg-orange-main/10 px-3 py-2.5 shrink-0"
+        >
+          <Timer className="mt-px size-3.5 shrink-0 text-orange-main" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[12px] font-semibold leading-snug text-orange-main">
+              Demasiados mensajes seguidos
+            </span>
+            <span className="text-[11px] leading-snug text-muted-foreground">
+              Podrás enviar de nuevo en {secondsLeft} s.
+            </span>
+          </div>
+        </div>
+      )}
+      {!exhausted && !rateLimited && quota?.warning && (
+        <div
+          data-cy="quota-warning"
+          role="status"
+          className="flex items-start gap-2.5 border-t border-yellow-main/40 bg-yellow-main/10 px-3 py-2.5 shrink-0"
+        >
+          <TriangleAlert className="mt-px size-3.5 shrink-0 text-yellow-main" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[12px] font-semibold leading-snug text-yellow-main">
+              Te quedan {quota.remaining} mensajes hoy
+            </span>
+            <span className="text-[11px] leading-snug text-muted-foreground">
+              La cuota se restablece a medianoche.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Input */}
       <form
         onSubmit={(e) => {
@@ -233,20 +335,32 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           value={input}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
           onKeyDown={handleKey}
-          placeholder={placeholder}
-          disabled={loading}
+          placeholder={
+            exhausted
+              ? 'Cuota agotada hasta medianoche'
+              : rateLimited
+                ? 'Espera un momento…'
+                : placeholder
+          }
+          disabled={loading || exhausted || rateLimited}
           rows={2}
           data-cy="chat-input"
           className="flex-1 resize-none bg-card/60 border-primary/30 text-white placeholder:text-muted-foreground text-[13px] focus-visible:ring-primary/40"
         />
         <Button
           type="submit"
-          size="icon"
+          size={rateLimited ? 'sm' : 'icon'}
           data-cy="chat-send"
-          disabled={loading || !input.trim()}
-          className="self-end bg-primary hover:bg-primary-light text-white shrink-0 transition-colors duration-150"
+          disabled={loading || !input.trim() || exhausted || rateLimited}
+          className="self-end bg-primary hover:bg-primary-light text-white shrink-0 transition-colors duration-150 disabled:opacity-45"
         >
-          <SendHorizonal className="size-4" />
+          {rateLimited ? (
+            <span data-cy="chat-send-countdown" className="text-[12px] font-semibold tabular-nums">
+              {secondsLeft} s
+            </span>
+          ) : (
+            <SendHorizonal className="size-4" />
+          )}
         </Button>
       </form>
     </div>

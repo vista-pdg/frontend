@@ -1,8 +1,10 @@
 import http from '@/lib/http';
 import type {
+  CourseQuotaDto,
   CreateRoleRequest,
   CreateUserRequest,
   PermissionDto,
+  QuotaChangeDto,
   RoleDto,
   UserDto,
 } from '@/types/auth';
@@ -47,6 +49,26 @@ export async function updateRole(id: number, req: CreateRoleRequest): Promise<Ro
 
 export async function deleteRole(id: number): Promise<void> {
   await http.delete(`/admin/roles/${id}`);
+}
+
+// Courses and assistant quota (HU-17)
+export async function fetchAdminCourses(): Promise<CourseQuotaDto[]> {
+  const res = await http.get<CourseQuotaDto[]>('/admin/courses');
+  return res.data;
+}
+
+export async function updateCourseQuota(code: string, dailyQuota: number): Promise<CourseQuotaDto> {
+  const res = await http.put<CourseQuotaDto>(`/admin/courses/${encodeURIComponent(code)}/quota`, {
+    dailyQuota,
+  });
+  return res.data;
+}
+
+export async function fetchQuotaHistory(code: string): Promise<QuotaChangeDto[]> {
+  const res = await http.get<QuotaChangeDto[]>(
+    `/admin/courses/${encodeURIComponent(code)}/quota-history`
+  );
+  return res.data;
 }
 
 // Permissions

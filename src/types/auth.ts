@@ -21,6 +21,34 @@ export interface CourseDto {
   termCode: string;
 }
 
+/** Estado de la cuota del asistente (HU-17). `resetsAt` es la próxima medianoche en America/Bogota. */
+export interface QuotaStatus {
+  limit: number;
+  used: number;
+  remaining: number;
+  resetsAt: string;
+  ratePerMinute: number;
+  warning: boolean;
+  warningThreshold: number;
+}
+
+export interface CourseQuotaDto {
+  code: string;
+  name: string;
+  termCode: string;
+  /** Nula = rige la cuota por defecto de la aplicación. */
+  dailyQuota: number | null;
+  effectiveDailyQuota: number;
+}
+
+export interface QuotaChangeDto {
+  courseCode: string;
+  previousQuota: number | null;
+  newQuota: number;
+  changedBy: string;
+  changedAt: string;
+}
+
 export interface AuthUser {
   email: string;
   displayName: string;
