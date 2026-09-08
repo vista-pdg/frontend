@@ -44,7 +44,7 @@ jobs:
     needs: quality
     uses: vista-pdg/dev-workflow/.github/workflows/e2e.yml@main
     with:
-      backend-ref: main
+      backend-ref: auto
       frontend-ref: ${{ github.event.pull_request.head.sha || github.sha }}
     secrets:
       VISTA_REPO_TOKEN: ${{ secrets.VISTA_REPO_TOKEN }}
