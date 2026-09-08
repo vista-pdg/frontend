@@ -37,10 +37,11 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
-  # El flujo compartido levanta el backend de main con este frontend y corre Cypress en Chromium y
-  # Firefox, los dos navegadores que exige la Definición de Terminado.
+  # El flujo compartido levanta el backend de la rama pareja (mismo nombre) si existe, o main, con
+  # este frontend, y corre Cypress en Chromium y Firefox, los dos navegadores que exige la
+  # Definición de Terminado.
   e2e:
-    name: E2E con el backend en main
+    name: E2E (backend pareja o main)
     needs: quality
     uses: vista-pdg/dev-workflow/.github/workflows/e2e.yml@main
     with:
