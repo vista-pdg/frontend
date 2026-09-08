@@ -46,9 +46,23 @@ const bare = axios.create({
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
 
+/**
+ * Modo de visualización activo (HU-18 · CA-7). Lo fija la composición de la aplicación; el cliente
+ * HTTP no importa el motor para no crear un ciclo. Sin fuente registrada no se envía cabecera.
+ */
+let visualizationModeSource: () => string | null = () => null;
+
+export function setVisualizationModeSource(source: () => string | null): void {
+  visualizationModeSource = source;
+}
+
+export const VISUALIZATION_MODE_HEADER = 'X-Visualization-Mode';
+
 http.interceptors.request.use((config) => {
   const token = session.accessToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  const mode = visualizationModeSource();
+  if (mode) config.headers[VISUALIZATION_MODE_HEADER] = mode;
   return config;
 });
 

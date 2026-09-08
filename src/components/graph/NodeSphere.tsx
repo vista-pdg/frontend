@@ -62,8 +62,9 @@ export function NodeSphere({ node, radius = 0.4, highlighted = false, highlightT
   const emissiveIntensity = highlighted ? 0.7 : 0.35;
 
   return (
-    // No position prop — managed imperatively by useFrame so lerp works correctly
-    <group ref={groupRef}>
+    // No position prop — managed imperatively by useFrame so lerp works correctly.
+    // userData identifica el nodo dibujado: ThreeRenderer.snapshot() lo lee de la escena (HU-18).
+    <group ref={groupRef} userData={{ nodeId: node.id, label: node.label, highlighted }}>
       <mesh>
         <sphereGeometry args={[radius, 32, 32]} />
         <meshStandardMaterial

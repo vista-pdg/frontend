@@ -123,6 +123,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
               value={valuesInput}
               onChange={(e) => setValuesInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              data-cy="algo-values"
               placeholder="Ej: 10, 5, 3, 7, 8"
               className="w-full bg-card/60 border border-primary/30 text-white placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150"
             />
@@ -134,6 +135,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
             )}
             <Button
               onClick={handleGenerate}
+              data-cy="algo-generate"
               disabled={stepsLoading || !valuesInput.trim()}
               className="bg-yellow-main hover:bg-yellow-dark text-black-main font-semibold text-[12px] h-8 transition-colors duration-150"
             >
