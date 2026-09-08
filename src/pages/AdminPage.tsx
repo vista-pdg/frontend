@@ -233,7 +233,7 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {u.roles.map((r) => (
-                        <Badge key={r} className="bg-primary/15 text-primary">
+                        <Badge key={r} className="bg-primary/15 text-primary-light">
                           {r}
                         </Badge>
                       ))}
@@ -310,7 +310,7 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
                       className={cn(
                         'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold border transition-colors duration-150',
                         active
-                          ? 'bg-primary/20 border-primary/60 text-primary'
+                          ? 'bg-primary/20 border-primary/60 text-primary-light'
                           : 'bg-transparent border-border text-muted-foreground hover:border-primary/40 hover:text-white'
                       )}
                     >
@@ -665,7 +665,7 @@ export function AdminPage() {
             </Link>
             <div className="w-px h-4 bg-border" />
             <div className="flex items-center gap-2">
-              <div className="size-6 bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary">
+              <div className="size-6 bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-light">
                 {user?.displayName?.[0]?.toUpperCase() ?? 'A'}
               </div>
               <span className="text-[12px] text-muted-foreground hidden sm:block">{user?.displayName}</span>

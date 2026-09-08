@@ -139,6 +139,7 @@ export function CanvasOverlay({ chatOpen, onToggleChat, onToggleAlgorithm, algor
 
         <button
           onClick={onToggleChat}
+          data-cy="chat-toggle"
           className={cn(
             'relative flex items-center justify-center size-10 border transition-all duration-200',
             chatOpen

@@ -167,6 +167,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           {messages.map((msg) => (
             <div
               key={msg.id}
+              data-cy={`chat-message-${msg.role}`}
               className={cn(
                 'max-w-[88%] px-3 py-2 text-[13px] leading-relaxed break-words',
                 msg.role === 'user'
@@ -235,11 +236,13 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           placeholder={placeholder}
           disabled={loading}
           rows={2}
+          data-cy="chat-input"
           className="flex-1 resize-none bg-card/60 border-primary/30 text-white placeholder:text-muted-foreground text-[13px] focus-visible:ring-primary/40"
         />
         <Button
           type="submit"
           size="icon"
+          data-cy="chat-send"
           disabled={loading || !input.trim()}
           className="self-end bg-primary hover:bg-primary-light text-white shrink-0 transition-colors duration-150"
         >

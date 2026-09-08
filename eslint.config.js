@@ -19,4 +19,16 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Specs de Cypress: chai afirma con getters (`expect(x).to.be.null`), que para la regla
+    // no-unused-expressions parecen expresiones sueltas. Es el uso previsto de chai, no un
+    // descuido, y el resto de reglas siguen aplicando.
+    files: ['cypress/**/*.ts', 'cypress.config.ts'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.mocha, cy: 'readonly', Cypress: 'readonly' },
+    },
+    rules: {
+      '@typescript-eslint/no-unused-expressions': 'off',
+    },
+  },
 ])
