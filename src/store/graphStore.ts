@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { generateGraphWithQuota } from '@/services/graphService';
 import { algorithmKey, fetchCatalog, runAlgorithm } from '@/services/algorithmService';
 import { clearSession, fetchQuota, fetchSessionStatus } from '@/services/assistantService';
+import { reportAlgorithmCompleted } from '@/services/analyticsService';
 import { ApiError } from '@/lib/http';
 import type { QuotaStatus, SessionStatus } from '@/types/auth';
 import type { Node3D, Edge3D, GraphMeta, AlgorithmStep, AlgorithmDescriptor, HighlightType } from '@/types/graph';
@@ -100,6 +101,8 @@ interface GraphState extends VisualizationMirror {
   /** Catálogo del servidor (HU-19 · CA-4): el mismo en cualquier modo. */
   catalog: AlgorithmDescriptor[];
   catalogLoading: boolean;
+  /** Rastro ya reportado como completado; evita repetir el evento al ir y volver del final. */
+  reportedTrace: string | null;
   /** Entrada del catálogo elegida en el panel; deriva de algorithmType/Subtype/Operation. */
   selectedAlgorithm: AlgorithmDescriptor | null;
 
@@ -129,6 +132,8 @@ interface GraphState extends VisualizationMirror {
   setCurrentStep: (index: number) => void;
   nextStep: () => void;
   prevStep: () => void;
+  /** Avisa al registro analítico si el paso actual es el último del rastro (HU-21 · CA-2). */
+  reportCompletionIfFinished: () => void;
 }
 
 export const useGraphStore = create<GraphState>((set, get) => ({
@@ -156,6 +161,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   stepsLoading: false,
   catalog: [],
   catalogLoading: false,
+  reportedTrace: null,
   selectedAlgorithm: null,
 
   sendPrompt: async (prompt: string) => {
@@ -385,7 +391,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         throw new Error(res.message ?? 'Error al cargar pasos');
       }
       engine.loadTrace(res.steps, res.code ?? null);
-      set({ stepsLoading: false });
+      set({ stepsLoading: false, reportedTrace: null });
     } catch (err: unknown) {
       set({ stepsLoading: false });
       throw err instanceof Error ? err : new Error('Error desconocido');
@@ -394,14 +400,39 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   setCurrentStep: (index) => {
     engine.goTo(index);
+    get().reportCompletionIfFinished();
   },
 
   nextStep: () => {
     engine.next();
+    get().reportCompletionIfFinished();
   },
 
   prevStep: () => {
     engine.prev();
+  },
+
+  /**
+   * HU-21 · CA-2: llegar al último paso es el hecho que el servidor no puede observar. Se reporta
+   * una sola vez por rastro —el estudiante puede ir y volver del final— y en silencio.
+   */
+  reportCompletionIfFinished: () => {
+    const { steps, currentStepIndex, selectedAlgorithm, meta } = get();
+    if (steps.length === 0 || currentStepIndex !== steps.length - 1) return;
+
+    // El modo de visualización queda fuera de la clave a propósito: conmutar 2D/3D en el último
+    // paso conserva el rastro (HU-18 · CA-2), así que sería el mismo recorrido contado dos veces.
+    const traceKey = `${selectedAlgorithm ? algorithmKey(selectedAlgorithm) : 'desconocido'}:${steps.length}`;
+    if (get().reportedTrace === traceKey) return;
+    set({ reportedTrace: traceKey });
+
+    void reportAlgorithmCompleted({
+      type: selectedAlgorithm?.type ?? meta?.type ?? 'unknown',
+      subtype: selectedAlgorithm?.subtype ?? meta?.subtype ?? null,
+      algorithm: selectedAlgorithm?.operation ?? 'unknown',
+      stepCount: steps.length,
+      nodeCount: get().nodes.length,
+    });
   },
 }));
 
