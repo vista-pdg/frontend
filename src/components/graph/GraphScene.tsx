@@ -5,7 +5,6 @@ import * as THREE from 'three';
 import { NodeSphere } from './NodeSphere';
 import { EdgeSegment } from './EdgeSegment';
 import type { Node3D, Edge3D, HighlightType } from '@/types/graph';
-import { useGraphStore } from '@/store/graphStore';
 
 function computeBounds(nodes: Node3D[]) {
   if (nodes.length === 0) return { center: new THREE.Vector3(), radius: 10 };
@@ -21,12 +20,16 @@ function computeBounds(nodes: Node3D[]) {
   return { center, radius };
 }
 
-function CameraRig({ nodes }: { nodes: Node3D[] }) {
+interface CameraRigProps {
+  nodes: Node3D[];
+  autoRotate: boolean;
+  cameraResetKey: number;
+}
+
+function CameraRig({ nodes, autoRotate, cameraResetKey }: CameraRigProps) {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
   const prevNodeKey = useRef('');
-  const autoRotate = useGraphStore((s) => s.autoRotate);
-  const cameraResetKey = useGraphStore((s) => s.cameraResetKey);
 
   const nodeKey = nodes.map((n) => n.id).join(',');
 
@@ -82,9 +85,22 @@ interface GraphSceneProps {
   edges: Edge3D[];
   highlightedNodeIds?: string[];
   highlightType?: HighlightType | null;
+  autoRotate?: boolean;
+  cameraResetKey?: number;
 }
 
-export function GraphScene({ nodes, edges, highlightedNodeIds = [], highlightType = null }: GraphSceneProps) {
+/**
+ * Escena 3D. Desde HU-18 recibe todo por props: la alimenta la vista del adaptador 3D y no conoce
+ * el store de la aplicación.
+ */
+export function GraphScene({
+  nodes,
+  edges,
+  highlightedNodeIds = [],
+  highlightType = null,
+  autoRotate = true,
+  cameraResetKey = 0,
+}: GraphSceneProps) {
   const nodeMap = useMemo(() => {
     const m = new Map<string, Node3D>();
     nodes.forEach((n) => m.set(n.id, n));
@@ -113,7 +129,7 @@ export function GraphScene({ nodes, edges, highlightedNodeIds = [], highlightTyp
         />
       ))}
 
-      <CameraRig nodes={nodes} />
+      <CameraRig nodes={nodes} autoRotate={autoRotate} cameraResetKey={cameraResetKey} />
     </>
   );
 }

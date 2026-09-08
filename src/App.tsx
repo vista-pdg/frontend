@@ -2,7 +2,7 @@ import { AppSidebar } from './components/AppSidebar';
 import { ChatPanel } from './components/ChatPanel';
 import { AlgorithmPanel } from './components/AlgorithmPanel';
 import { CanvasOverlay } from './components/CanvasOverlay';
-import GraphVis3D from './components/GraphVis3D';
+import { VisualizationCanvas } from './components/VisualizationCanvas';
 import { useGraphStore } from './store/graphStore';
 
 export default function App() {
@@ -32,7 +32,7 @@ export default function App() {
       <div className="flex flex-1 overflow-hidden min-w-0">
         {/* Canvas area */}
         <div className="relative flex-1 overflow-hidden min-w-0">
-          <GraphVis3D />
+          <VisualizationCanvas />
           <CanvasOverlay
             chatOpen={chatOpen}
             onToggleChat={toggleChat}

@@ -62,7 +62,7 @@ export function EdgeSegment({ edge, nodeMap, nodeRadius = 0.4 }: EdgeSegmentProp
   const color = edge.directed ? '#5454e9' : '#4cb979';
 
   return (
-    <>
+    <group userData={{ edgeId: edge.id }}>
       <Line
         points={[geo.from, geo.lineEnd]}
         color={color}
@@ -100,6 +100,6 @@ export function EdgeSegment({ edge, nodeMap, nodeRadius = 0.4 }: EdgeSegmentProp
           {edge.weight}
         </Text>
       )}
-    </>
+    </group>
   );
 }

@@ -27,6 +27,11 @@ jobs:
       - name: Typecheck
         run: npx tsc -b
 
+      # HU-18: la suite del núcleo de visualización corre sin adaptadores y exige 80 % de cobertura
+      # sobre src/core (umbrales en vitest.config.ts). Bloqueante.
+      - name: Unit tests (Vitest, core coverage gate)
+        run: npm run test:coverage
+
       - name: Build
         run: npm run build
 

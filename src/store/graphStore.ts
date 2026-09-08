@@ -4,6 +4,8 @@ import { fetchQuota } from '@/services/assistantService';
 import { ApiError } from '@/lib/http';
 import type { QuotaStatus } from '@/types/auth';
 import type { Node3D, Edge3D, GraphMeta, AlgorithmStep, HighlightType } from '@/types/graph';
+import type { EngineState, VisualizationMode } from '@/core';
+import { chooseMode, engine, preferredMode, webglAvailable } from '@/renderers/appEngine';
 
 export interface ChatMessage {
   id: string;
@@ -24,10 +26,37 @@ const TYPE_LABELS: Record<string, string> = {
   'hash-table': 'Tabla Hash',
 };
 
-interface GraphState {
+/**
+ * Desde HU-18 el estado visualizable (nodos, aristas, pasos, paso actual, resaltado, modo) es del
+ * `VisualizationEngine`. El store lo **refleja** por suscripción para que los componentes sigan
+ * leyéndolo con `useGraphStore`, y sus acciones delegan en el motor. Lo que sigue siendo del store
+ * es la interfaz: chat, paneles, cuota, cámara.
+ */
+interface VisualizationMirror {
   nodes: Node3D[];
   edges: Edge3D[];
   meta: GraphMeta | null;
+  steps: AlgorithmStep[];
+  currentStepIndex: number;
+  highlightedNodeIds: string[];
+  highlightType: HighlightType | null;
+  mode: VisualizationMode;
+}
+
+function mirror(e: EngineState): VisualizationMirror {
+  return {
+    nodes: e.structure.nodes,
+    edges: e.structure.edges,
+    meta: e.meta,
+    steps: e.trace,
+    currentStepIndex: e.stepIndex,
+    highlightedNodeIds: e.highlight.ids,
+    highlightType: e.highlight.type,
+    mode: e.mode,
+  };
+}
+
+interface GraphState extends VisualizationMirror {
   messages: ChatMessage[];
   loading: boolean;
   activeStructureType: string | null;
@@ -43,16 +72,17 @@ interface GraphState {
   rateLimitUntil: number | null;
   cameraResetKey: number;
 
+  // Modo de visualización (HU-18)
+  webglAvailable: boolean;
+  /** Verdadero si el motor forzó 2D porque no hay WebGL y el aviso sigue sin cerrarse (CA-6). */
+  webglNoticeVisible: boolean;
+
   // Algorithm demo state
   algorithmOpen: boolean;
   algorithmType: string | null;
   algorithmSubtype: string | null;
   algorithmOperation: string | null;
-  steps: AlgorithmStep[];
-  currentStepIndex: number;
   stepsLoading: boolean;
-  highlightedNodeIds: string[];
-  highlightType: HighlightType | null;
 
   sendPrompt: (prompt: string) => Promise<void>;
   clearAll: () => void;
@@ -62,6 +92,9 @@ interface GraphState {
   clearAssistantBlock: () => void;
   toggleAutoRotate: () => void;
   resetCamera: () => void;
+  /** Cambia de modo conservando la estructura y el paso. Devuelve falso si el modo no está disponible. */
+  setMode: (mode: VisualizationMode) => boolean;
+  dismissWebglNotice: () => void;
 
   setAlgorithmOpen: (open: boolean) => void;
   openAlgorithmDemo: (type: string, subtype: string, operation: string) => void;
@@ -72,9 +105,7 @@ interface GraphState {
 }
 
 export const useGraphStore = create<GraphState>((set, get) => ({
-  nodes: [],
-  edges: [],
-  meta: null,
+  ...mirror(engine.getState()),
   messages: [WELCOME_MSG],
   loading: false,
   activeStructureType: null,
@@ -85,16 +116,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   assistantBlocked: null,
   rateLimitUntil: null,
   cameraResetKey: 0,
+  webglAvailable,
+  webglNoticeVisible: !webglAvailable && preferredMode !== '2D',
 
   algorithmOpen: false,
   algorithmType: null,
   algorithmSubtype: null,
   algorithmOperation: null,
-  steps: [],
-  currentStepIndex: 0,
   stepsLoading: false,
-  highlightedNodeIds: [],
-  highlightType: null,
 
   sendPrompt: async (prompt: string) => {
     if (get().loading || get().assistantBlocked) return;
@@ -139,14 +168,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
           }
         : prev;
 
+      engine.loadStructure(result.nodes, result.edges, result.meta);
       set((s) => ({
-        nodes: result.nodes,
-        edges: result.edges,
-        meta: result.meta,
         loading: false,
-        highlightedNodeIds: [],
-        highlightType: null,
-        steps: [],
         quota,
         assistantBlocked: quota && quota.remaining === 0 ? 'daily' : null,
         messages: [
@@ -201,19 +225,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     }
   },
 
-  clearAll: () =>
+  clearAll: () => {
+    engine.clear();
     set({
-      nodes: [],
-      edges: [],
-      meta: null,
       messages: [WELCOME_MSG],
-      steps: [],
-      currentStepIndex: 0,
-      highlightedNodeIds: [],
-      highlightType: null,
       activeStructureType: null,
       activeSubtype: null,
-    }),
+    });
+  },
 
   setActiveStructureType: (type, subtype = null) =>
     set({ activeStructureType: type, activeSubtype: subtype }),
@@ -237,21 +256,21 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
   toggleAutoRotate: () => set((s) => ({ autoRotate: !s.autoRotate })),
   resetCamera: () => set((s) => ({ cameraResetKey: s.cameraResetKey + 1 })),
+  setMode: (mode) => chooseMode(mode),
+  dismissWebglNotice: () => set({ webglNoticeVisible: false }),
 
   setAlgorithmOpen: (open) => set({ algorithmOpen: open }),
 
-  openAlgorithmDemo: (type, subtype, operation) =>
+  openAlgorithmDemo: (type, subtype, operation) => {
+    engine.clear();
     set({
       algorithmOpen: true,
       chatOpen: false,
       algorithmType: type,
       algorithmSubtype: subtype,
       algorithmOperation: operation,
-      steps: [],
-      currentStepIndex: 0,
-      highlightedNodeIds: [],
-      highlightType: null,
-    }),
+    });
+  },
 
   loadAlgorithmSteps: async (type, subtype, operation, values) => {
     set({ stepsLoading: true });
@@ -260,17 +279,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       if (res.error || !res.steps) {
         throw new Error(res.message ?? 'Error al cargar pasos');
       }
-      const firstStep = res.steps[0];
-      set({
-        steps: res.steps,
-        currentStepIndex: 0,
-        nodes: firstStep?.nodes ?? [],
-        edges: firstStep?.edges ?? [],
-        highlightedNodeIds: firstStep?.highlightedNodeIds ?? [],
-        highlightType: firstStep?.highlightType ?? null,
-        meta: null,
-        stepsLoading: false,
-      });
+      engine.loadTrace(res.steps);
+      set({ stepsLoading: false });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error desconocido';
       set({ stepsLoading: false });
@@ -279,29 +289,17 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   setCurrentStep: (index) => {
-    const { steps } = get();
-    if (index < 0 || index >= steps.length) return;
-    const step = steps[index];
-    set({
-      currentStepIndex: index,
-      nodes: step.nodes,
-      edges: step.edges,
-      highlightedNodeIds: step.highlightedNodeIds,
-      highlightType: step.highlightType,
-    });
+    engine.goTo(index);
   },
 
   nextStep: () => {
-    const { currentStepIndex, steps } = get();
-    if (currentStepIndex < steps.length - 1) {
-      get().setCurrentStep(currentStepIndex + 1);
-    }
+    engine.next();
   },
 
   prevStep: () => {
-    const { currentStepIndex } = get();
-    if (currentStepIndex > 0) {
-      get().setCurrentStep(currentStepIndex - 1);
-    }
+    engine.prev();
   },
 }));
+
+// El motor es la fuente de verdad; el store sólo lo refleja.
+engine.subscribe((state) => useGraphStore.setState(mirror(state)));

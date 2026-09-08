@@ -210,6 +210,7 @@ export function AppSidebar() {
                           {sub.demoOp && (
                             <button
                               onClick={() => openAlgorithmDemo(type, sub.subtype, sub.demoOp!)}
+                              data-cy={`demo-${type}-${sub.subtype}`}
                               title={`Demo: ${sub.label} inserción`}
                               className="flex items-center justify-center size-7 text-muted-foreground hover:text-yellow-main hover:bg-yellow-main/10 transition-colors duration-150 shrink-0 border border-transparent hover:border-yellow-main/30"
                             >
