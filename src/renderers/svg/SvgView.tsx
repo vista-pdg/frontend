@@ -245,6 +245,8 @@ export function SvgView({ renderer }: SvgViewProps) {
                 data-label={node.label}
                 data-highlighted={isHl ? 'true' : 'false'}
                 data-role={role}
+                data-x={p.x}
+                data-y={p.y}
                 role="img"
                 aria-label={nodeDescription(node, kind, isHl, highlightType)}
                 style={{ transform: `translate(${p.x}px, ${p.y}px)`, transition: 'transform 300ms ease' }}

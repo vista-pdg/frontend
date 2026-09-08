@@ -10,19 +10,21 @@ export interface NodeBox {
   highlighted: boolean;
 }
 
-const TRANSLATE = /translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px\)/;
-
+/**
+ * Las coordenadas se leen de `data-x`/`data-y`, que la vista escribe junto al `transform`: cada
+ * navegador serializa `style` a su manera (Firefox no conserva el texto original) y parsearlo no
+ * es fiable.
+ */
 export function nodeBoxes(svg: JQuery<HTMLElement>): NodeBox[] {
   return svg
     .find('[data-node-id]')
     .toArray()
     .map((el) => {
-      const m = TRANSLATE.exec(el.getAttribute('style') ?? '');
       return {
         id: el.getAttribute('data-node-id')!,
         label: el.getAttribute('data-label') ?? '',
-        x: m ? Number(m[1]) : NaN,
-        y: m ? Number(m[2]) : NaN,
+        x: Number(el.getAttribute('data-x')),
+        y: Number(el.getAttribute('data-y')),
         role: el.getAttribute('data-role') ?? undefined,
         highlighted: el.getAttribute('data-highlighted') === 'true',
       };
