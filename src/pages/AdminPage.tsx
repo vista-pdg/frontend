@@ -12,6 +12,9 @@ import {
   Check,
   ChevronLeft,
   LogOut,
+  GraduationCap,
+  History,
+  Save,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,16 +28,22 @@ import {
   updateRole,
   deleteRole,
   fetchPermissions,
+  fetchAdminCourses,
+  updateCourseQuota,
+  fetchQuotaHistory,
 } from '@/services/adminService';
+import { ApiError } from '@/lib/http';
 import type {
   UserDto,
   RoleDto,
   PermissionDto,
   CreateUserRequest,
   CreateRoleRequest,
+  CourseQuotaDto,
+  QuotaChangeDto,
 } from '@/types/auth';
 
-type Tab = 'users' | 'roles' | 'permissions';
+type Tab = 'users' | 'roles' | 'permissions' | 'courses';
 
 // ─── Small reusable components ───────────────────────────────────────────────
 
@@ -618,6 +627,218 @@ function PermissionsSection() {
   );
 }
 
+// ─── Courses & assistant quota (HU-17) ────────────────────────────────────
+
+function CoursesSection() {
+  const [courses, setCourses] = useState<CourseQuotaDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const [savedCode, setSavedCode] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
+  const [history, setHistory] = useState<QuotaChangeDto[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    fetchAdminCourses()
+      .then((cs) => {
+        setCourses(cs);
+        setDrafts(Object.fromEntries(cs.map((c) => [c.code, c.dailyQuota?.toString() ?? ''])));
+      })
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'No se pudieron cargar los cursos')
+      )
+      .finally(() => setLoading(false));
+  }, []);
+
+  function parsed(code: string): number | null {
+    const raw = drafts[code]?.trim() ?? '';
+    if (!/^\d+$/.test(raw)) return null;
+    const n = Number(raw);
+    return n >= 1 && n <= 1000 ? n : null;
+  }
+
+  function isDirty(c: CourseQuotaDto): boolean {
+    const raw = drafts[c.code]?.trim() ?? '';
+    return raw !== (c.dailyQuota?.toString() ?? '');
+  }
+
+  async function save(c: CourseQuotaDto) {
+    const value = parsed(c.code);
+    if (value === null) return;
+    setSaving(c.code);
+    setError(null);
+    try {
+      const updated = await updateCourseQuota(c.code, value);
+      setCourses((cs) => cs.map((x) => (x.code === c.code ? updated : x)));
+      setSavedCode(c.code);
+      window.setTimeout(() => setSavedCode((s) => (s === c.code ? null : s)), 2500);
+      if (historyFor === c.code) void loadHistory(c.code);
+    } catch (err: unknown) {
+      setError(err instanceof ApiError ? err.message : 'No se pudo guardar la cuota');
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function loadHistory(code: string) {
+    setHistoryFor(code);
+    setHistoryLoading(true);
+    try {
+      setHistory(await fetchQuotaHistory(code));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'No se pudo cargar el historial');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
+
+  return (
+    <>
+      <div className="flex items-end justify-between gap-4 mb-4">
+        <div>
+          <p className="text-[11px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
+            {courses.length} cursos
+          </p>
+          <p className="text-[12px] text-muted-foreground mt-1">
+            Cuota diaria de mensajes al asistente por curso. En blanco aplica la cuota por defecto.
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <p data-cy="courses-error" className="text-[12px] text-red-400 border border-destructive/30 bg-destructive/10 px-3 py-2 mb-3">
+          {error}
+        </p>
+      )}
+
+      {loading ? (
+        <p className="text-[13px] text-muted-foreground">Cargando…</p>
+      ) : (
+        <div className="border border-border overflow-hidden" data-cy="courses-table">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="border-b border-border bg-white/3">
+                {['Código', 'Curso', 'Periodo', 'Cuota diaria', ''].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left px-4 py-2.5 text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {courses.map((c) => {
+                const valid = parsed(c.code) !== null;
+                const dirty = isDirty(c);
+                return (
+                  <tr key={c.code} className="border-b border-border/50 hover:bg-white/3 transition-colors" data-cy={`course-row-${c.code}`}>
+                    <td className="px-4 py-3 font-mono text-white">{c.code}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{c.name}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{c.termCode}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          inputMode="numeric"
+                          value={drafts[c.code] ?? ''}
+                          placeholder={String(c.effectiveDailyQuota)}
+                          onChange={(e) => setDrafts((d) => ({ ...d, [c.code]: e.target.value }))}
+                          data-cy={`quota-input-${c.code}`}
+                          aria-label={`Cuota diaria de ${c.code}`}
+                          aria-invalid={dirty && !valid}
+                          className={cn(
+                            'w-24 bg-black-main border px-2.5 py-1.5 text-[13px] text-white placeholder:text-muted-foreground focus:outline-none transition-colors',
+                            dirty && !valid ? 'border-destructive' : dirty ? 'border-primary-light' : 'border-border'
+                          )}
+                        />
+                        <span className="text-[11px] text-muted-foreground">
+                          {c.dailyQuota === null ? 'por defecto' : 'msg/día'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        {savedCode === c.code && (
+                          <span data-cy={`quota-saved-${c.code}`} className="text-[11px] text-secondary flex items-center gap-1">
+                            <Check className="size-3" /> Guardado
+                          </span>
+                        )}
+                        <button
+                          onClick={() => save(c)}
+                          disabled={!dirty || !valid || saving === c.code}
+                          data-cy={`quota-save-${c.code}`}
+                          className="flex items-center gap-1.5 bg-primary px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Save className="size-3.5" /> Guardar
+                        </button>
+                        <button
+                          onClick={() => (historyFor === c.code ? setHistoryFor(null) : void loadHistory(c.code))}
+                          data-cy={`quota-history-${c.code}`}
+                          className={cn(
+                            'flex items-center gap-1.5 border px-3 py-1.5 text-[12px] transition-colors',
+                            historyFor === c.code
+                              ? 'border-primary-light text-primary-light'
+                              : 'border-border text-muted-foreground hover:text-white hover:border-primary/40'
+                          )}
+                        >
+                          <History className="size-3.5" /> Historial
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {historyFor && (
+        <div className="border border-border mt-4" data-cy="quota-history-list">
+          <div className="flex items-center gap-2 border-b border-border bg-white/3 px-4 py-2.5">
+            <History className="size-3.5 text-muted-foreground" />
+            <span className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
+              Historial de cambios de cuota · {historyFor}
+            </span>
+          </div>
+          {historyLoading ? (
+            <p className="px-4 py-3 text-[12px] text-muted-foreground">Cargando…</p>
+          ) : history.length === 0 ? (
+            <p className="px-4 py-3 text-[12px] text-muted-foreground">Sin cambios registrados.</p>
+          ) : (
+            <ul>
+              {history.map((h, i) => (
+                <li
+                  key={`${h.changedAt}-${i}`}
+                  data-cy="quota-history-row"
+                  className="flex items-center gap-6 border-b border-border/50 px-4 py-2.5 text-[12px] last:border-b-0"
+                >
+                  <span className="w-40 text-muted-foreground">{fmt(h.changedAt)}</span>
+                  <span className="w-32 flex items-center gap-2">
+                    <span className="text-muted-foreground">{h.previousQuota ?? '—'}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="font-semibold text-white">{h.newQuota}</span>
+                  </span>
+                  <span className="text-muted-foreground">{h.changedBy}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────
 
 export function AdminPage() {
@@ -635,6 +856,7 @@ export function AdminPage() {
     { id: 'users', label: 'Usuarios', icon: Users },
     { id: 'roles', label: 'Roles', icon: Shield },
     { id: 'permissions', label: 'Permisos', icon: Lock },
+    { id: 'courses', label: 'Cursos', icon: GraduationCap },
   ];
 
   return (
@@ -698,6 +920,7 @@ export function AdminPage() {
             <button
               key={id}
               onClick={() => setTab(id)}
+              data-cy={`admin-tab-${id}`}
               className={cn(
                 'flex items-center gap-2 px-5 py-3 text-[12px] font-semibold border-b-2 -mb-px transition-colors duration-150',
                 tab === id
@@ -716,6 +939,7 @@ export function AdminPage() {
           {tab === 'users' && <UsersSection roles={roles} />}
           {tab === 'roles' && <RolesSection permissions={permissions} />}
           {tab === 'permissions' && <PermissionsSection />}
+          {tab === 'courses' && <CoursesSection />}
         </div>
       </main>
     </div>

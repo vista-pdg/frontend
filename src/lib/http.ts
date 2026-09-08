@@ -7,13 +7,25 @@ export class ApiError extends Error {
   readonly code: string;
   readonly status?: number;
   readonly fieldErrors: Record<string, string>;
+  /** Segundos de `Retry-After` en un 429 de límite de tasa; la UI los usa para la cuenta regresiva. */
+  readonly retryAfterSeconds?: number;
+  /** Instante ISO de `X-Quota-Reset` cuando el servidor lo envía (cuota agotada). */
+  readonly quotaResetsAt?: string;
 
-  constructor(message: string, code: string, fieldErrors: Record<string, string>, status?: number) {
+  constructor(
+    message: string,
+    code: string,
+    fieldErrors: Record<string, string>,
+    status?: number,
+    extras: { retryAfterSeconds?: number; quotaResetsAt?: string } = {}
+  ) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.retryAfterSeconds = extras.retryAfterSeconds;
+    this.quotaResetsAt = extras.quotaResetsAt;
   }
 }
 
@@ -113,11 +125,18 @@ function toApiError(error: AxiosError<ApiErrorBody>): ApiError {
   const body = error.response?.data;
   const message =
     body?.message ?? error.response?.statusText ?? error.message ?? 'Error de red';
+  const headers = error.response?.headers ?? {};
+  const retryAfter = Number(headers['retry-after']);
+  const quotaResetsAt = headers['x-quota-reset'];
   return new ApiError(
     message,
     body?.code ?? 'NETWORK_ERROR',
     body?.fieldErrors ?? {},
-    error.response?.status
+    error.response?.status,
+    {
+      retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
+      quotaResetsAt: typeof quotaResetsAt === 'string' ? quotaResetsAt : undefined,
+    }
   );
 }
 
