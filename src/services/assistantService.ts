@@ -1,5 +1,5 @@
 import http from '@/lib/http';
-import type { QuotaStatus } from '@/types/auth';
+import type { QuotaStatus, SessionStatus } from '@/types/auth';
 
 /** Estado de la cuota del usuario autenticado; se pide al entrar al lienzo (HU-17 CA-5). */
 export async function fetchQuota(): Promise<QuotaStatus> {
@@ -21,4 +21,25 @@ export function quotaFromHeaders(
     return null;
   }
   return { limit, remaining, resetsAt };
+}
+
+/** Estado de la sesión de trabajo del asistente (HU-32): si recuerda algo y cuánto le queda. */
+export async function fetchSessionStatus(): Promise<SessionStatus> {
+  const { data } = await http.get<SessionStatus>('/assistant/session');
+  return data;
+}
+
+/** Olvida la estructura vigente en el servidor. Lo llama «Limpiar» (HU-32 · CA-7). */
+export async function clearSession(): Promise<void> {
+  await http.delete('/assistant/session');
+}
+
+/**
+ * Cabecera `X-Assistant-Memory` de /api/generate: dice si el servidor pudo recordar esta
+ * generación. `null` cuando el servidor no la envía (versión anterior).
+ */
+export function memoryFromHeaders(headers: Record<string, unknown>): boolean | null {
+  const value = headers['x-assistant-memory'];
+  if (typeof value !== 'string') return null;
+  return value === 'active';
 }
