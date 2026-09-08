@@ -44,6 +44,8 @@ interface VisualizationMirror {
   highlightedNodeIds: string[];
   highlightType: HighlightType | null;
   mode: VisualizationMode;
+  /** Pseudocódigo del rastro (HU-22a); nulo si el algoritmo no está instrumentado. */
+  code: string[] | null;
 }
 
 function mirror(e: EngineState): VisualizationMirror {
@@ -56,6 +58,7 @@ function mirror(e: EngineState): VisualizationMirror {
     highlightedNodeIds: e.highlight.ids,
     highlightType: e.highlight.type,
     mode: e.mode,
+    code: e.code,
   };
 }
 
@@ -330,19 +333,22 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     set({ stepsLoading: true });
     try {
       const { structure } = engine.getState();
+      // Con entrada `structure` se envía lo que hay en el lienzo; si no hay nada y llegan valores,
+      // el algoritmo puede construir su estructura con ellos (inorden → BST).
+      const useCanvas = d.input === 'structure' && structure.nodes.length > 0;
       const res = await runAlgorithm({
         type: d.type,
         subtype: d.subtype,
         operation: d.operation,
-        values: d.input === 'values' ? values : undefined,
-        nodes: d.input === 'structure' ? structure.nodes : undefined,
-        edges: d.input === 'structure' ? structure.edges : undefined,
-        start: d.input === 'structure' ? start : undefined,
+        values: useCanvas ? undefined : values,
+        nodes: useCanvas ? structure.nodes : undefined,
+        edges: useCanvas ? structure.edges : undefined,
+        start: useCanvas ? start : undefined,
       });
       if (res.error || !res.steps) {
         throw new Error(res.message ?? 'Error al cargar pasos');
       }
-      engine.loadTrace(res.steps);
+      engine.loadTrace(res.steps, res.code ?? null);
       set({ stepsLoading: false });
     } catch (err: unknown) {
       set({ stepsLoading: false });

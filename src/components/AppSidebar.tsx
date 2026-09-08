@@ -47,7 +47,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: GitBranch,
     subItems: [
       { subtype: 'avl', label: 'AVL', demoOp: 'insert' },
-      { subtype: 'bst', label: 'Árbol BST' },
+      { subtype: 'bst', label: 'Árbol BST', demoOp: 'inorder' },
       { subtype: 'btree', label: 'B-árbol' },
     ],
   },
@@ -230,7 +230,7 @@ export function AppSidebar() {
                             <button
                               onClick={() => openAlgorithmDemo(type, sub.subtype, sub.demoOp!)}
                               data-cy={`demo-${type}-${sub.subtype}`}
-                              title={`Demo: ${sub.label} inserción`}
+                              title={`Demo: ${sub.label} ${sub.demoOp === 'inorder' ? 'recorrido inorden' : 'inserción'}`}
                               className="flex items-center justify-center size-7 text-muted-foreground hover:text-yellow-main hover:bg-yellow-main/10 transition-colors duration-150 shrink-0 border border-transparent hover:border-yellow-main/30"
                             >
                               <FlaskConical className="size-3.5" />

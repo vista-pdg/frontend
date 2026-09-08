@@ -43,7 +43,7 @@ que cambiar de modo no deja huérfanos.
 | Llamada | Estado | Adaptador activo |
 |---|---|---|
 | `loadStructure(nodes, edges, meta)` | estructura nueva, sin rastro | `render` + `highlight` |
-| `loadTrace(steps)` | rastro cargado, cuadro 0 | `render` + `highlight` |
+| `loadTrace(steps, code?)` | rastro cargado (y su pseudocódigo, HU-22a), cuadro 0 | `render` + `highlight` |
 | `goTo(i)` / `next()` / `prev()` | cuadro `i` | `animateStep` + `highlight` |
 | `highlight(ids, type)` | resaltado | `highlight` |
 | `clear()` | vacío | `clear` |

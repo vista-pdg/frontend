@@ -36,6 +36,7 @@ const ALGO_PRESETS: Record<string, { label: string; values: string; description:
 
 const DEFAULT_VALUES: Record<string, string> = {
   'tree/avl/insert': '10, 5, 3, 7, 8',
+  'tree/bst/inorder': '10, 5, 15, 3, 7',
   'stack/simple/pop': '3, 42, 8, 17',
   'queue/simple/dequeue': '5, 9, 1, 14',
 };
@@ -105,12 +106,17 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
     return groups;
   }, [catalog]);
 
-  // BFS corre sobre el grafo del lienzo: el nodo inicial se elige entre los que hay.
+  // Los algoritmos de entrada `structure` recorren lo que hay en el lienzo (BFS, inorden). Si el
+  // lienzo está vacío y el algoritmo sabe construir su estructura con valores (inorden → BST), se
+  // ofrece el formulario de valores; si no (BFS), se pide generar primero.
   const needsStructure = selected?.input === 'structure';
-  const structureIsGraph = nodes.length > 0 && steps.length === 0 && (meta?.type === 'graph' || meta === null);
   const canvasNodes = needsStructure ? nodes : [];
+  const canFallbackToValues = needsStructure && selectedKey !== null && DEFAULT_VALUES[selectedKey] !== undefined;
+  const usesValues = selected?.input === 'values' || (needsStructure && canvasNodes.length === 0 && canFallbackToValues);
+  const isGraphLike = needsStructure && selected?.type === 'graph';
   // Si el nodo elegido ya no está (otro grafo), se recurre al primero: derivado, no sincronizado.
   const start = canvasNodes.some((n) => n.id === chosenStart) ? chosenStart : (canvasNodes[0]?.id ?? '');
+  void meta;
 
   const currentStep = steps[currentStepIndex] ?? null;
   const hlConfig = currentStep ? HIGHLIGHT_CONFIG[currentStep.highlightType] : null;
@@ -126,7 +132,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
     if (!selected) return;
     setError(null);
     try {
-      if (selected.input === 'values') {
+      if (usesValues) {
         const values = parseValues(valuesInput);
         if (!values || values.length === 0) {
           setError('Ingresa valores numéricos separados por comas (ej: 10, 5, 3)');
@@ -135,10 +141,10 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
         await runSelectedAlgorithm({ values });
       } else {
         if (canvasNodes.length === 0) {
-          setError('Genera un grafo desde el chat antes de recorrerlo');
+          setError('Genera una estructura desde el chat antes de recorrerla');
           return;
         }
-        await runSelectedAlgorithm({ start });
+        await runSelectedAlgorithm({ start: isGraphLike ? start : undefined });
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error al generar pasos');
@@ -150,9 +156,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   }
 
   const runDisabled =
-    stepsLoading ||
-    !selected ||
-    (selected.input === 'values' ? !valuesInput.trim() : canvasNodes.length === 0);
+    stepsLoading || !selected || (usesValues ? !valuesInput.trim() : canvasNodes.length === 0);
 
   return (
     <div
@@ -226,10 +230,10 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
           {/* Formulario según la entrada del algoritmo */}
           {selected && (
             <div className="flex flex-col gap-2 border-t border-border pt-3" data-cy="algo-form">
-              {selected.input === 'values' ? (
+              {usesValues ? (
                 <>
                   <label className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
-                    Valores
+                    {needsStructure ? 'Valores (el lienzo está vacío: se construye un BST)' : 'Valores'}
                   </label>
                   <input
                     type="text"
@@ -241,6 +245,10 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                     className="w-full bg-card/60 border border-primary/30 text-white placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150"
                   />
                 </>
+              ) : !isGraphLike ? (
+                <p className="text-[11px] text-muted-foreground leading-relaxed" data-cy="algo-uses-canvas">
+                  Se recorre la estructura del lienzo ({canvasNodes.length} nodos).
+                </p>
               ) : (
                 <>
                   <label className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
@@ -261,9 +269,8 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                     </select>
                   ) : (
                     <p className="text-[11px] text-muted-foreground leading-relaxed" data-cy="algo-needs-graph">
-                      {structureIsGraph
-                        ? 'Selecciona un nodo del grafo.'
-                        : 'No hay grafo en el lienzo. Genera uno desde el chat (por ejemplo «grafo ciclo de 6 nodos») y vuelve aquí.'}
+                      No hay grafo en el lienzo. Genera uno desde el chat (por ejemplo «grafo ciclo de 6 nodos») y
+                      vuelve aquí.
                     </p>
                   )}
                 </>

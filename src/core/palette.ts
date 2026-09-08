@@ -22,8 +22,13 @@ export const HIGHLIGHT_COLORS: Record<HighlightType, string> = {
   dequeue: '#d32f2f',
 };
 
-/** Estado por nodo que los algoritmos de recorrido escriben en `properties.state`. */
+/**
+ * Estado por nodo que los algoritmos de recorrido escriben en `properties.state`. `unvisited` es
+ * neutro a propósito: durante un recorrido el color por profundidad se apaga, porque la
+ * profundidad 2 es verde y se confundiría con «visitado».
+ */
 export const STATE_COLORS: Record<string, string> = {
+  unvisited: '#5454e9',
   visited: '#4cb979',
   frontier: '#E4EB60',
   current: '#E9683B',

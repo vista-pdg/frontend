@@ -134,6 +134,25 @@ describe('VisualizationEngine — reenvío por el contrato', () => {
     expect(engine.getState().stepIndex).toBe(0);
   });
 
+  it('guarda el pseudocódigo del rastro (HU-22a) y lo suelta al limpiar o cargar otra estructura', () => {
+    const engine = new VisualizationEngine();
+    const code = ['inorden(nodo):', '  visitar(nodo)'];
+    const steps = trace([2, 1, 3]).map((s, i) => ({ ...s, line: (i % 2) + 1 }));
+    engine.loadTrace(steps, code);
+    expect(engine.getState().code).toEqual(code);
+    expect(engine.getState().trace[1].line).toBe(2);
+    engine.goTo(2);
+    expect(engine.getState().trace[engine.getState().stepIndex].line).toBe(1);
+    engine.loadTrace(trace([1]));
+    expect(engine.getState().code).toBeNull();
+    engine.loadTrace(steps, code);
+    engine.clear();
+    expect(engine.getState().code).toBeNull();
+    engine.loadTrace(steps, code);
+    engine.loadStructure([], []);
+    expect(engine.getState().code).toBeNull();
+  });
+
   it('un rastro vacío equivale a limpiar', () => {
     const engine = new VisualizationEngine();
     engine.loadStructure(bst([1]).nodes, []);

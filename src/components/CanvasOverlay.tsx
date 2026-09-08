@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import type { VisualizationMode } from '@/core';
+import { CodePanel } from './CodePanel';
 import { cn } from '@/lib/utils';
 import { useGraphStore } from '@/store/graphStore';
 
@@ -344,6 +345,9 @@ export function CanvasOverlay({ chatOpen, onToggleChat, onToggleAlgorithm, algor
           ) : null}
         </div>
       )}
+
+      {/* HU-22a: panel de código sincronizado con el paso actual */}
+      {inAlgorithmMode && <CodePanel />}
 
       {/* Step description bar (algo mode) */}
       {inAlgorithmMode && currentStep && highlightType && (

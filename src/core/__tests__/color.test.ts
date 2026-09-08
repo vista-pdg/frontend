@@ -53,7 +53,9 @@ describe('contraste WCAG (CA-6)', () => {
   it('nodeFill prioriza el resaltado, luego el estado, luego la profundidad', () => {
     expect(nodeFill(0, 'visited', true, 'pop')).toBe(HIGHLIGHT_COLORS.pop);
     expect(nodeFill(0, 'visited', false, null)).toBe(STATE_COLORS.visited);
-    expect(nodeFill(1, 'unvisited', false, null)).toBe(DEPTH_COLORS[1]);
+    expect(nodeFill(1, 'unvisited', false, null), 'en un recorrido la profundidad se apaga').toBe(STATE_COLORS.unvisited);
+    expect(nodeFill(2, 'unvisited', false, null)).not.toBe(STATE_COLORS.visited);
+    expect(nodeFill(1, 'other', false, null)).toBe(DEPTH_COLORS[1]);
     expect(nodeFill(7, undefined, false, null)).toBe(DEPTH_COLORS[2]);
     expect(nodeFill(0, 'visited', true, null)).toBe(STATE_COLORS.visited);
   });

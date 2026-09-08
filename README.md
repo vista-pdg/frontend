@@ -60,6 +60,10 @@ familia; el mismo en 2D y 3D. Los que construyen su estructura (AVL, pop, dequeu
 BFS recorre el grafo que haya en el lienzo desde el nodo elegido. Los pasos los produce el backend y
 los reproduce el motor en cualquiera de los dos adaptadores.
 
+Los algoritmos instrumentados (por ahora el recorrido inorden) traen su pseudocódigo y la línea que
+ejecuta cada paso: el **panel de código** (`CodePanel`) resalta esa línea a la vez que el lienzo
+resalta el nodo, en 2D y en 3D, y «Anterior» devuelve ambos al paso previo.
+
 ## Diseño
 
 Sistema de diseño Icesi: `DESIGN.md` y los tokens de `src/index.css`. La app fuerza modo oscuro. Las
