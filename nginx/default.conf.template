@@ -1,0 +1,71 @@
+# Rendered at startup by the nginx entrypoint (envsubst). Only ${BACKEND_URL} and
+# ${NGINX_LOCAL_RESOLVERS} are substituted; every other $var is nginx's own.
+
+# Per-client limits. Cloud Run puts the client IP last in X-Forwarded-For.
+# A whole classroom may share one NAT IP, so limits are generous.
+set_real_ip_from 0.0.0.0/0;
+real_ip_header X-Forwarded-For;
+limit_req_zone $binary_remote_addr zone=api:10m rate=20r/s;
+limit_req_zone $binary_remote_addr zone=auth:10m rate=2r/s;
+limit_req_status 429;
+
+server {
+    listen 8080;
+    server_name _;
+    server_tokens off;
+    # Keep server-level security headers in locations that add their own.
+    add_header_inherit merge;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    client_max_body_size 1m;
+
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+    # The backend is internal-only; this proxy is its single public entry point.
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=60s ipv6=off;
+    set $backend "${BACKEND_URL}";
+
+    proxy_http_version 1.1;
+    proxy_ssl_server_name on;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_read_timeout 120s;
+
+    location /api/auth/ {
+        limit_req zone=auth burst=60 nodelay;
+        proxy_pass $backend;
+    }
+
+    location /api/ {
+        limit_req zone=api burst=200 nodelay;
+        proxy_pass $backend;
+    }
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok";
+    }
+
+    # Hashed build assets never change.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # SPA fallback; index.html must always be revalidated.
+    location / {
+        add_header Cache-Control "no-cache";
+        try_files $uri $uri/ /index.html;
+    }
+}

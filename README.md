@@ -82,3 +82,11 @@ pantallas se diseñan primero en pen (documento de VISTA) y luego se implementan
 `.github/workflows/ci.yml`: typecheck → Vitest con cobertura → build → lint (informativo) → E2E
 compartido (`vista-pdg/dev-workflow/.github/workflows/e2e.yml`) en Chromium y Firefox contra el
 backend de la rama pareja o `main`.
+
+## Despliegue
+
+`Dockerfile` multistage (Node → `nginx-unprivileged`, usuario no root). nginx sirve la SPA y hace de
+proxy de `/api` hacia el backend interno (`BACKEND_URL`), con rate limit por IP y cabeceras de
+seguridad (`nginx/default.conf.template`). En cada push a `main`, tras `quality` y `e2e`, el job
+`deploy` de `ci.yml` construye, sube a Artifact Registry y despliega `vista-frontend` en Cloud Run.
+Infraestructura en `vista-pdg/terraform-iac`.
