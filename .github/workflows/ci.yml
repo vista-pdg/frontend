@@ -115,5 +115,6 @@ jobs:
         run: |
           url=$(gcloud run services describe "${{ vars.CLOUD_RUN_SERVICE }}" \
             --project "${{ vars.GCP_PROJECT_ID }}" --region "${{ vars.GCP_REGION }}" --format='value(status.url)')
-          curl -fsS --retry 5 --retry-all-errors "$url/healthz"
+          # /healthz is only for the internal probe: Cloud Run reserves paths ending in "z".
           curl -fsS --retry 5 --retry-all-errors -o /dev/null "$url/"
+          curl -fsS --retry 5 --retry-all-errors -o /dev/null "$url/api/courses"
