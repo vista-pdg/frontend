@@ -41,6 +41,7 @@ describe('HU-19 · CA-1 Cobertura de las familias en 2D', () => {
 
     // Pila por el asistente.
     cy.get('[data-cy=algorithm-toggle]').click();
+    cy.get('[data-cy=nav-stack]').click();
     generateByChat('pila con 3, 42, 8, 17', 4);
     cy.get('[data-cy=canvas-2d]').should('have.attr', 'data-kind', 'stack');
     cy.get('[data-cy=svg-scene] [data-role="top"]').should('have.attr', 'data-label', '17');
@@ -57,6 +58,7 @@ describe('HU-19 · CA-1 Cobertura de las familias en 2D', () => {
     });
 
     // Cola por el asistente.
+    cy.get('[data-cy=nav-queue]').click();
     generateByChat('cola con 5, 9, 1, 14', 4);
     cy.get('[data-cy=canvas-2d]').should('have.attr', 'data-kind', 'queue');
     cy.get('[data-cy=svg-scene] [data-role="front"]').should('have.attr', 'data-label', '5');

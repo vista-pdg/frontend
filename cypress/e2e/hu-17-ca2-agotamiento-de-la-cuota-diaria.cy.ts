@@ -51,7 +51,7 @@ describe('HU-17 · CA-2 Agotamiento de la cuota diaria', () => {
         method: 'POST',
         url: '/api/generate',
         headers: { Authorization: `Bearer ${s.accessToken}` },
-        body: { prompt: 'mensaje numero 3' },
+        body: { prompt: 'grafo K3 mensaje numero 3' },
         failOnStatusCode: false,
       }).then((res) => {
         expect(res.status).to.eq(429);

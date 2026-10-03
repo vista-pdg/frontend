@@ -1,3 +1,4 @@
+import { algorithmFitsContext } from '@/lib/workContext';
 import { create } from 'zustand';
 import { generateGraphWithQuota } from '@/services/graphService';
 import { algorithmKey, fetchCatalog, runAlgorithm } from '@/services/algorithmService';
@@ -5,7 +6,7 @@ import { clearSession, fetchQuota, fetchSessionStatus } from '@/services/assista
 import { reportAlgorithmCompleted } from '@/services/analyticsService';
 import { ApiError } from '@/lib/http';
 import type { QuotaStatus, SessionStatus } from '@/types/auth';
-import type { Node3D, Edge3D, GraphMeta, AlgorithmStep, AlgorithmDescriptor, HighlightType } from '@/types/graph';
+import type { CodeRepresentation, Node3D, Edge3D, GraphMeta, AlgorithmStep, AlgorithmDescriptor, HighlightType } from '@/types/graph';
 import { structureFitsFamily, type EngineState, type VisualizationMode } from '@/core';
 import { chooseMode, engine, preferredMode, webglAvailable } from '@/renderers/appEngine';
 
@@ -47,6 +48,7 @@ interface VisualizationMirror {
   mode: VisualizationMode;
   /** Pseudocódigo del rastro (HU-22a); nulo si el algoritmo no está instrumentado. */
   code: string[] | null;
+  representations: CodeRepresentation[];
 }
 
 function mirror(e: EngineState): VisualizationMirror {
@@ -60,6 +62,7 @@ function mirror(e: EngineState): VisualizationMirror {
     highlightType: e.highlight.type,
     mode: e.mode,
     code: e.code,
+    representations: e.representations,
   };
 }
 
@@ -68,6 +71,8 @@ interface GraphState extends VisualizationMirror {
   loading: boolean;
   activeStructureType: string | null;
   activeSubtype: string | null;
+  contextRevision: number;
+  canvasContext: { type: string; subtype: string | null } | null;
   chatOpen: boolean;
   autoRotate: boolean;
 
@@ -142,6 +147,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   loading: false,
   activeStructureType: null,
   activeSubtype: null,
+  contextRevision: 0,
+  canvasContext: null,
   chatOpen: false,
   autoRotate: true,
   quota: null,
@@ -167,6 +174,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   sendPrompt: async (prompt: string) => {
     if (get().loading || get().assistantBlocked) return;
 
+    const { contextRevision: revision, activeStructureType: type, activeSubtype: subtype } = get();
     set((s) => ({
       loading: true,
       messages: [
@@ -176,7 +184,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     }));
 
     try {
-      const { structure: result, quota: fromHeaders, memory } = await generateGraphWithQuota(prompt);
+      const { structure: result, quota: fromHeaders, memory } = await generateGraphWithQuota(prompt, type, subtype);
+      if (revision !== get().contextRevision) return;
       const { meta } = result;
 
       const typeLabel = meta?.type ? (TYPE_LABELS[meta.type] ?? meta.type) : 'Estructura';
@@ -213,6 +222,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       set((s) => ({
         loading: false,
         quota,
+        canvasContext: meta ? { type: meta.type, subtype: meta.subtype } : null,
+        activeStructureType: type ?? meta?.type ?? null,
+        activeSubtype: type ? subtype : meta?.subtype === 'simple' ? null : meta?.subtype ?? null,
         memoryAvailable: memory === null ? get().memoryAvailable : memory,
         session: memory === false ? null : get().session,
         sessionExpiresAt: memory === false ? null : get().sessionExpiresAt,
@@ -227,6 +239,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         ],
       }));
     } catch (err: unknown) {
+      if (revision !== get().contextRevision) return;
       const msg = err instanceof Error ? err.message : 'Error desconocido';
 
       // HU-17: los dos 429 se tratan distinto. El diario bloquea hasta medianoche; el de ráfaga se
@@ -275,6 +288,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     // borrado falla en silencio: la sesión que no existe no hay que borrarla.
     void clearSession().catch(() => undefined);
     set({
+      contextRevision: get().contextRevision + 1,
+      canvasContext: null,
+      loading: false, stepsLoading: false, selectedAlgorithm: null,
+      algorithmType: null, algorithmSubtype: null, algorithmOperation: null,
       messages: [WELCOME_MSG],
       activeStructureType: null,
       activeSubtype: null,
@@ -283,8 +300,22 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     });
   },
 
-  setActiveStructureType: (type, subtype = null) =>
-    set({ activeStructureType: type, activeSubtype: subtype }),
+  setActiveStructureType: (type, subtype = null) => {
+    if (type === 'heap') { type = 'tree'; subtype = 'heap'; }
+    const state = get();
+    if (type === state.activeStructureType && subtype === state.activeSubtype) return;
+    const selected = state.selectedAlgorithm;
+    const compatible = selected && algorithmFitsContext(selected, type, subtype);
+    // Keep the loaded structure visible, but detach the old execution from a new context.
+    if (state.steps.length) engine.loadStructure(state.nodes, state.edges, state.meta);
+    set({ activeStructureType: type, activeSubtype: subtype,
+      contextRevision: state.contextRevision + 1, loading: false, stepsLoading: false,
+      selectedAlgorithm: compatible ? selected : null,
+      algorithmType: compatible ? selected.type : null,
+      algorithmSubtype: compatible ? selected.subtype : null,
+      algorithmOperation: compatible ? selected.operation : null,
+    });
+  },
 
   setChatOpen: (open) => set({ chatOpen: open }),
 
@@ -324,6 +355,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   setAlgorithmOpen: (open) => set({ algorithmOpen: open }),
 
   openAlgorithmDemo: (type, subtype, operation) => {
+    get().setActiveStructureType(type, subtype === 'simple' ? null : subtype);
+    const revision = get().contextRevision;
     const key = `${type}/${subtype}/${operation}`;
     set({
       algorithmOpen: true,
@@ -336,8 +369,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     // lienzo y no debe borrarlo; los que construyen su estructura arrancan de cero. Si el catálogo
     // aún no llegó, se espera a tenerlo antes de decidir.
     const apply = () => {
+      if (revision !== get().contextRevision) return;
       const found = get().catalog.find((d) => algorithmKey(d) === key) ?? null;
-      if (!found || found.input !== 'structure') engine.clear();
+      if (!found || found.input !== 'structure') { engine.clear(); set({ canvasContext: null }); }
       set({ selectedAlgorithm: found });
     };
     if (get().catalog.length === 0) void get().loadCatalog().then(apply);
@@ -361,17 +395,24 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     }
   },
 
-  selectAlgorithm: (descriptor) =>
-    set({
-      selectedAlgorithm: descriptor,
-      algorithmType: descriptor?.type ?? null,
-      algorithmSubtype: descriptor?.subtype ?? null,
-      algorithmOperation: descriptor?.operation ?? null,
-    }),
+  selectAlgorithm: (descriptor) => {
+    if (descriptor && !algorithmFitsContext(descriptor, get().activeStructureType, get().activeSubtype)) {
+      throw new Error('Este algoritmo no corresponde a la estructura seleccionada');
+    }
+    if (descriptor && !get().activeStructureType) {
+      get().setActiveStructureType(descriptor.type, descriptor.subtype === 'simple' ? null : descriptor.subtype);
+    }
+    if (get().steps.length) engine.loadStructure(get().nodes, get().edges, get().meta);
+    set({ selectedAlgorithm: descriptor, algorithmType: descriptor?.type ?? null,
+      algorithmSubtype: descriptor?.subtype ?? null, algorithmOperation: descriptor?.operation ?? null,
+      contextRevision: get().contextRevision + 1, loading: false, stepsLoading: false });
+  },
 
   runSelectedAlgorithm: async ({ values, start }) => {
     const d = get().selectedAlgorithm;
     if (!d) throw new Error('Elige un algoritmo del catálogo');
+    if (!algorithmFitsContext(d, get().activeStructureType, get().activeSubtype)) throw new Error('Algoritmo incompatible con el contexto');
+    const revision = get().contextRevision;
     set({ stepsLoading: true });
     try {
       const { structure } = engine.getState();
@@ -387,12 +428,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         edges: useCanvas ? structure.edges : undefined,
         start: useCanvas ? start : undefined,
       });
+      if (revision !== get().contextRevision) return;
       if (res.error || !res.steps) {
         throw new Error(res.message ?? 'Error al cargar pasos');
       }
-      engine.loadTrace(res.steps, res.code ?? null);
-      set({ stepsLoading: false, reportedTrace: null });
+      engine.loadTrace(res.steps, res.code ?? null, res.representations ?? []);
+      set({ stepsLoading: false, reportedTrace: null, canvasContext: { type: d.type, subtype: d.subtype } });
     } catch (err: unknown) {
+      if (revision !== get().contextRevision) return;
       set({ stepsLoading: false });
       throw err instanceof Error ? err : new Error('Error desconocido');
     }

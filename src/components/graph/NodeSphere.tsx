@@ -1,4 +1,4 @@
-import { useRef, useLayoutEffect } from 'react';
+import { useRef, useLayoutEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
@@ -19,20 +19,22 @@ interface NodeSphereProps {
 
 export function NodeSphere({ node, radius = 0.4, highlighted = false, highlightType = null }: NodeSphereProps) {
   const groupRef = useRef<THREE.Group>(null);
-  // Updated synchronously on each render — safe with refs, avoids one-frame delay
+  // Commit animation targets before the next Three.js frame, without mutating refs in render.
   const targetPos = useRef(new THREE.Vector3(node.x, node.y, node.z));
   const highlightedRef = useRef(highlighted);
-  targetPos.current.set(node.x, node.y, node.z);
-  highlightedRef.current = highlighted;
+  useLayoutEffect(() => {
+    targetPos.current.set(node.x, node.y, node.z);
+    highlightedRef.current = highlighted;
+  }, [node.x, node.y, node.z, highlighted]);
+  const [initialPosition] = useState(() => new THREE.Vector3(node.x, node.y, node.z));
 
   // Runs before the first Three.js frame: place node at correct position and start invisible
   useLayoutEffect(() => {
     const g = groupRef.current;
     if (!g) return;
-    g.position.set(node.x, node.y, node.z);
+    g.position.copy(initialPosition);
     g.scale.setScalar(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialPosition]);
 
   useFrame(() => {
     const g = groupRef.current;

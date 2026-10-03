@@ -1,3 +1,4 @@
+import { openSidebar } from '../support/navigation';
 /// <reference types="cypress" />
 import { generateByChat, runDemo } from '../support/hu19';
 import { contrastRatio } from '../../src/core/color';
@@ -53,6 +54,7 @@ describe('HU-19 · CA-6 Accesibilidad del lienzo 2D', () => {
 
   it('un recorrido BFS con sus cuatro estados de color sigue cumpliendo AA en cada paso', () => {
     generateByChat('grafo ciclo de 5 nodos', 5);
+    openSidebar();
     cy.get('[data-cy=demo-graph-simple]').click();
     cy.intercept('POST', '/api/algorithm/steps').as('steps');
     cy.get('[data-cy=algo-generate]').click();

@@ -1,4 +1,4 @@
-import type { AlgorithmStep, Edge3D, GraphMeta, HighlightType, Node3D } from '@/types/graph';
+import type { AlgorithmStep, CodeRepresentation, Edge3D, GraphMeta, HighlightType, Node3D } from '@/types/graph';
 
 /**
  * Modelo del núcleo de visualización (HU-18).
@@ -40,6 +40,7 @@ export interface EngineState extends RenderFrame {
   trace: ExecutionStep[];
   /** Pseudocódigo del rastro cargado (HU-22a). El motor lo guarda; no lo interpreta. */
   code: string[] | null;
+  representations: CodeRepresentation[];
   mode: VisualizationMode;
   webglAvailable: boolean;
 }

@@ -63,7 +63,7 @@ export interface ApiErrorBody {
   fieldErrors?: Record<string, string>;
 }
 
-export interface RegisterPayload {
+export interface RegistrationIntent {
   displayName: string;
   email: string;
   password: string;
@@ -112,4 +112,15 @@ export interface SessionStatus {
   active: boolean;
   structureType: string | null;
   secondsRemaining: number;
+}
+
+export interface VerificationResponse {
+  verificationId: string;
+  expiresAt: string;
+  resendAvailableAt: string;
+}
+
+export interface RegisterPayload extends RegistrationIntent {
+  verificationId: string;
+  verificationCode: string;
 }

@@ -8,6 +8,13 @@
 /* ICESI Design System — Light Mode */
 :root {
   --background: #E5E5F5;
+  --shell: #ffffff;
+  --canvas: #f5f5fc;
+  --code-text: #333333;
+  --primary-light: #4343ba;
+  --annotation-yellow: #677016;
+  --annotation-orange: #b44d29;
+  --annotation-green: #24633e;
   --foreground: #000000;
   --card: #ffffff;
   --card-foreground: #000000;
@@ -40,6 +47,13 @@
 /* ICESI Design System — Dark Mode */
 .dark {
   --background: #121212;
+  --shell: #000000;
+  --canvas: #020617;
+  --code-text: #d4d4d8;
+  --primary-light: #7a7aee;
+  --annotation-yellow: #e4eb60;
+  --annotation-orange: #e9683b;
+  --annotation-green: #4cb979;
   --foreground: #ffffff;
   --card: #1e1e1e;
   --card-foreground: #ffffff;
@@ -75,9 +89,9 @@ input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-  -webkit-text-fill-color: #ffffff;
-  -webkit-box-shadow: 0 0 0 1000px #000000 inset;
-  caret-color: #ffffff;
+  -webkit-text-fill-color: var(--foreground);
+  -webkit-box-shadow: 0 0 0 1000px var(--shell) inset;
+  caret-color: var(--foreground);
   transition: background-color 9999s ease-in-out 0s;
 }
 
@@ -97,7 +111,13 @@ body,
 
   /* ICESI static color tokens */
   --color-primary: #5454e9;
-  --color-primary-light: #7a7aee;
+  --color-primary-light: var(--primary-light);
+  --color-shell: var(--shell);
+  --color-canvas: var(--canvas);
+  --color-code-text: var(--code-text);
+  --color-annotation-yellow: var(--annotation-yellow);
+  --color-annotation-orange: var(--annotation-orange);
+  --color-annotation-green: var(--annotation-green);
   --color-primary-dark: #4343ba;
   --color-secondary: #4cb979;
   --color-secondary-dark: #368b5b;

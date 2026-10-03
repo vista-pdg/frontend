@@ -1,4 +1,5 @@
 /// <reference types="cypress" />
+import { openSidebar } from './navigation';
 
 /**
  * Utilidades de la HU-18. El motor y los adaptadores quedan expuestos en `window.__vista` para que
@@ -35,6 +36,7 @@ export function engineState(win: Window) {
 
 /** Abre la demo AVL desde la barra lateral y genera el rastro con los valores dados. */
 export function loadAvlDemo(values: string) {
+  openSidebar();
   cy.get('[data-cy=demo-tree-avl]').click();
   cy.get('[data-cy=algo-values]').should('be.visible').clear().type(values);
   cy.intercept('POST', '/api/algorithm/steps').as('steps');

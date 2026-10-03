@@ -1,3 +1,4 @@
+import { algorithmFitsContext } from '@/lib/workContext';
 import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -44,13 +45,13 @@ const DEFAULT_VALUES: Record<string, string> = {
 
 const HIGHLIGHT_CONFIG: Record<string, { label: string; className: string }> = {
   initial: { label: 'INICIO', className: 'bg-muted/50 text-muted-foreground border-border' },
-  insert: { label: 'INSERTAR', className: 'bg-orange-main/15 text-orange-main border-orange-main/40' },
+  insert: { label: 'INSERTAR', className: 'bg-orange-main/15 text-annotation-orange border-orange-main/40' },
   unbalanced: { label: 'DESBALANCE', className: 'bg-destructive/15 text-red-400 border-destructive/40' },
-  rotated: { label: 'ROTACIÓN', className: 'bg-yellow-main/15 text-yellow-main border-yellow-main/40' },
-  balanced: { label: 'BALANCEADO', className: 'bg-secondary/15 text-secondary border-secondary/40' },
-  visit: { label: 'VISITAR', className: 'bg-orange-main/15 text-orange-main border-orange-main/40' },
-  frontier: { label: 'EN COLA', className: 'bg-yellow-main/15 text-yellow-main border-yellow-main/40' },
-  done: { label: 'COMPLETO', className: 'bg-secondary/15 text-secondary border-secondary/40' },
+  rotated: { label: 'ROTACIÓN', className: 'bg-yellow-main/15 text-annotation-yellow border-yellow-main/40' },
+  balanced: { label: 'BALANCEADO', className: 'bg-secondary/15 text-annotation-green border-secondary/40' },
+  visit: { label: 'VISITAR', className: 'bg-orange-main/15 text-annotation-orange border-orange-main/40' },
+  frontier: { label: 'EN COLA', className: 'bg-yellow-main/15 text-annotation-yellow border-yellow-main/40' },
+  done: { label: 'COMPLETO', className: 'bg-secondary/15 text-annotation-green border-secondary/40' },
   pop: { label: 'POP', className: 'bg-destructive/15 text-red-400 border-destructive/40' },
   dequeue: { label: 'DEQUEUE', className: 'bg-destructive/15 text-red-400 border-destructive/40' },
 };
@@ -97,15 +98,17 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
     selectAlgorithm(d);
   };
 
+  const activeType = useGraphStore(s => s.activeStructureType);
+  const activeSubtype = useGraphStore(s => s.activeSubtype);
   const byFamily = useMemo(() => {
     const groups = new Map<string, AlgorithmDescriptor[]>();
-    for (const d of catalog) {
+    for (const d of catalog.filter(d => algorithmFitsContext(d, activeType, activeSubtype))) {
       const list = groups.get(d.family) ?? [];
       list.push(d);
       groups.set(d.family, list);
     }
     return groups;
-  }, [catalog]);
+  }, [catalog, activeType, activeSubtype]);
 
   // Los algoritmos de entrada `structure` recorren lo que hay en el lienzo (BFS, inorden). Si el
   // lienzo está vacío y el algoritmo sabe construir su estructura con valores (inorden → BST), se
@@ -164,28 +167,29 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   return (
     <div
       data-cy="algorithm-panel"
+      inert={!open}
       className={cn(
-        'flex flex-col h-full border-l border-border bg-black-main shrink-0',
-        'transition-all duration-300 ease-in-out overflow-hidden',
+        'relative max-lg:absolute max-lg:top-0 max-lg:right-0 max-lg:h-[calc(100%_-_4rem)] max-lg:z-30 flex flex-col h-full border-l border-border bg-shell shrink-0',
+        'transition-[width,opacity] duration-300 ease-out motion-reduce:transition-none overflow-hidden',
         open ? 'w-80 opacity-100' : 'w-0 opacity-0 pointer-events-none'
       )}
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-2 border-b border-border bg-yellow-main/8 px-4 py-3 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <FlaskConical className="size-4 text-yellow-main shrink-0" />
+          <FlaskConical className="size-4 text-annotation-yellow shrink-0" />
           <div className="flex flex-col min-w-0">
-            <span className="text-[13px] font-semibold tracking-wide text-white leading-none">
+            <span className="text-[13px] font-semibold tracking-wide text-foreground leading-none">
               Algoritmos
             </span>
-            <span className="text-[10px] text-yellow-main tracking-widest uppercase leading-tight">
+            <span className="text-[10px] text-annotation-yellow tracking-widest uppercase leading-tight">
               {selected ? selected.label : `Catálogo · ${byFamily.size} familias`}
             </span>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="text-muted-foreground hover:text-white transition-colors duration-150 p-1 shrink-0"
+          className="text-muted-foreground hover:text-foreground transition-colors duration-150 p-1 shrink-0"
           aria-label="Cerrar panel"
         >
           <X className="size-4" />
@@ -201,6 +205,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                 <Loader2 className="size-3 animate-spin" /> Cargando catálogo…
               </div>
             )}
+            {!catalogLoading && byFamily.size === 0 && <p role="status" className="p-3 text-xs text-muted-foreground">No hay algoritmos disponibles para esta estructura. Usa el chat o selecciona otra estructura.</p>}
             {FAMILIES.filter((f) => byFamily.has(f.id)).map((f) => (
               <div key={f.id} className="flex flex-col gap-1" data-cy={`algo-family-${f.id}`}>
                 <p className="text-[9px] font-bold tracking-[0.15em] text-muted-foreground uppercase">{f.label}</p>
@@ -217,11 +222,11 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                       className={cn(
                         'text-left border px-3 py-2 transition-colors duration-150',
                         active
-                          ? 'border-primary/40 bg-primary/15 text-white'
-                          : 'border-border bg-card/40 hover:border-yellow-main/40 hover:bg-yellow-main/5 text-white'
+                          ? 'border-primary/40 bg-primary/15 text-foreground'
+                          : 'border-border bg-card/40 hover:border-yellow-main/40 hover:bg-yellow-main/5 text-foreground'
                       )}
                     >
-                      <div className={cn('text-[12px] font-medium', active ? 'text-primary-light' : 'text-white')}>{d.label}</div>
+                      <div className={cn('text-[12px] font-medium', active ? 'text-primary-light' : 'text-foreground')}>{d.label}</div>
                       <div className="text-[10px] text-muted-foreground">{d.description}</div>
                     </button>
                   );
@@ -245,7 +250,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                     onKeyDown={handleKeyDown}
                     data-cy="algo-values"
                     placeholder="Ej: 10, 5, 3, 7, 8"
-                    className="w-full bg-card/60 border border-primary/30 text-white placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150"
+                    className="w-full bg-card/60 border border-primary/30 text-foreground placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150"
                   />
                 </>
               ) : !isGraphLike ? (
@@ -262,7 +267,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                       value={start}
                       onChange={(e) => setChosenStart(e.target.value)}
                       data-cy="algo-start"
-                      className="w-full bg-card/60 border border-primary/30 text-white text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70"
+                      className="w-full bg-card/60 border border-primary/30 text-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70"
                     >
                       {canvasNodes.map((n) => (
                         <option key={n.id} value={n.id}>
@@ -315,7 +320,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                       onClick={() => setValuesInput(p.values)}
                       className="text-left border border-border hover:border-yellow-main/40 bg-card/40 hover:bg-yellow-main/5 px-3 py-2 transition-colors duration-150 group"
                     >
-                      <div className="text-[12px] font-medium text-white group-hover:text-yellow-main transition-colors duration-150">
+                      <div className="text-[12px] font-medium text-foreground group-hover:text-annotation-yellow transition-colors duration-150">
                         {p.label}
                       </div>
                       <div className="text-[11px] text-muted-foreground">{p.description}</div>
@@ -355,7 +360,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                     {hlConfig.label}
                   </span>
                 )}
-                <p className="text-[13px] font-semibold text-white leading-snug">
+                <p className="text-[13px] font-semibold text-foreground leading-snug">
                   {currentStep.title}
                 </p>
                 <p className="text-[12px] text-muted-foreground leading-relaxed">
@@ -364,7 +369,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                 {currentStep.rotationType && (
                   <div className="flex items-center gap-1.5 pt-1 border-t border-border">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Tipo:</span>
-                    <span className="text-[11px] font-mono text-yellow-main uppercase">
+                    <span className="text-[11px] font-mono text-annotation-yellow uppercase">
                       {currentStep.rotationType}
                     </span>
                   </div>
@@ -377,7 +382,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                   size="sm"
                   onClick={prevStep}
                   disabled={currentStepIndex === 0}
-                  className="flex-1 border-border bg-transparent text-muted-foreground hover:text-white hover:border-primary/50 h-8 text-[12px] disabled:opacity-30"
+                  className="flex-1 border-border bg-transparent text-muted-foreground hover:text-foreground hover:border-primary/50 h-8 text-[12px] disabled:opacity-30"
                 >
                   <ChevronLeft className="size-3.5 mr-1" />
                   Anterior
@@ -387,7 +392,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                   size="sm"
                   onClick={nextStep}
                   disabled={currentStepIndex === steps.length - 1}
-                  className="flex-1 border-border bg-transparent text-muted-foreground hover:text-white hover:border-primary/50 h-8 text-[12px] disabled:opacity-30"
+                  className="flex-1 border-border bg-transparent text-muted-foreground hover:text-foreground hover:border-primary/50 h-8 text-[12px] disabled:opacity-30"
                 >
                   Siguiente
                   <ChevronRight className="size-3.5 ml-1" />
@@ -408,8 +413,8 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                         className={cn(
                           'flex items-center gap-2 text-left px-2.5 py-1.5 text-[11px] transition-colors duration-150 border',
                           i === currentStepIndex
-                            ? 'bg-primary/15 border-primary/40 text-white'
-                            : 'border-transparent hover:bg-white/5 text-muted-foreground hover:text-white'
+                            ? 'bg-primary/15 border-primary/40 text-foreground'
+                            : 'border-transparent hover:bg-white/5 text-muted-foreground hover:text-foreground'
                         )}
                       >
                         <span className="font-mono shrink-0 text-[10px] text-muted-foreground w-4 text-right">

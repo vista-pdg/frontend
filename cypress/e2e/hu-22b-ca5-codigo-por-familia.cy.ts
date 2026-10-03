@@ -1,3 +1,4 @@
+import { openSidebar } from '../support/navigation';
 /// <reference types="cypress" />
 import { generateByChat, runDemo } from '../support/hu19';
 
@@ -44,7 +45,9 @@ describe('HU-22b · CA-5 Código genérico visible en las cuatro familias', () =
 
     // Grafo (BFS sobre el grafo del lienzo)
     cy.get('[data-cy=algorithm-toggle]').click();
+    cy.get('[data-cy=nav-graph]').click();
     generateByChat('grafo ciclo de 5 nodos', 5);
+    openSidebar();
     cy.get('[data-cy=demo-graph-simple]').click();
     cy.intercept('POST', '/api/algorithm/steps').as('bfs');
     cy.get('[data-cy=algo-generate]').click();
@@ -57,9 +60,11 @@ describe('HU-22b · CA-5 Código genérico visible en las cuatro familias', () =
     cy.get('[data-cy=var-orden-value]').should('have.text', '[V1]');
   });
 
-  it('el AVL, no instrumentado, sigue ejecutándose sin panel de código', () => {
+  it('el AVL muestra código instrumentado sin cambiar sus pasos', () => {
     runDemo('demo-tree-avl', '10, 5, 3');
     cy.get('[data-cy=step-counter]').should('be.visible');
-    cy.get('[data-cy=code-panel]').should('not.exist');
+    cy.get('[data-cy=code-panel]').should('be.visible');
+    cy.get('[data-cy=code-line-2]').should('have.attr', 'data-active', 'true');
+    cy.get('[data-cy=code-view-java]').should('be.visible');
   });
 });

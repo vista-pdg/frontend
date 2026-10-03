@@ -80,6 +80,17 @@ export interface CallFrame {
   params: Record<string, string>;
 }
 
+export interface CodeRepresentation {
+  language: string;
+  label: string;
+  fileName: string;
+  code: string[];
+  /** Logical pseudocode line -> explicit 1-based lines in this representation. */
+  lineMap: Record<number, number[]>;
+  sourceLabel: string;
+  sourceUrl: string | null;
+}
+
 export interface StepsResponse {
   error: boolean;
   message: string | null;
@@ -87,4 +98,5 @@ export interface StepsResponse {
   /** Pseudocódigo del algoritmo (HU-22a); nulo si no está instrumentado. */
   code?: string[] | null;
   language?: string | null;
+  representations?: CodeRepresentation[] | null;
 }

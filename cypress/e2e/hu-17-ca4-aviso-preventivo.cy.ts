@@ -39,7 +39,7 @@ describe('HU-17 · CA-4 Aviso preventivo de umbral', () => {
     cy.get('[data-cy=quota-warning]').should('not.exist');
 
     // El 4.º se procesa y deja 1: entra en el umbral (ceil(5 · 0,2) = 1).
-    cy.get('[data-cy=chat-input]').type('cuarto mensaje');
+    cy.get('[data-cy=chat-input]').type('grafo K3 cuarto mensaje');
     cy.get('[data-cy=chat-send]').click();
     cy.wait('@generate').its('response.statusCode').should('eq', 200);
 
@@ -66,6 +66,6 @@ describe('HU-17 · CA-4 Aviso preventivo de umbral', () => {
     cy.get('[data-cy=chat-toggle]').click();
     cy.get('[data-cy=quota-warning]').should('be.visible');
     cy.get('[data-cy=quota-exhausted]').should('not.exist');
-    cy.get('[data-cy=quota-counter]').should('have.class', 'text-yellow-main');
+    cy.get('[data-cy=quota-counter]').should('have.class', 'text-annotation-yellow');
   });
 });

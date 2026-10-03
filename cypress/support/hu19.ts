@@ -1,4 +1,5 @@
 /// <reference types="cypress" />
+import { openSidebar } from './navigation';
 
 /** Utilidades de la HU-19: geometría del lienzo 2D leída del DOM del SVG. */
 export interface NodeBox {
@@ -55,6 +56,7 @@ export function generateByChat(prompt: string, expectedNodes?: number) {
 
 /** Abre la demo de una familia desde la barra lateral y la ejecuta con los valores dados. */
 export function runDemo(demoCy: string, values?: string) {
+  openSidebar();
   cy.get(`[data-cy=${demoCy}]`).click();
   cy.get('[data-cy=algo-form]').should('be.visible');
   if (values !== undefined) cy.get('[data-cy=algo-values]').clear().type(values);

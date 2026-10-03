@@ -280,3 +280,24 @@ describe('VisualizationEngine — WebGL (CA-6)', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 });
+
+
+describe('read-only code representations belong to the trace', () => {
+  it('preserves mappings across steps/modes and clears them with the trace', () => {
+    const engine = new VisualizationEngine();
+    const java = { language: 'java', label: 'Java', fileName: 'Demo.java', code: ['visit();'], lineMap: { 1: [1] }, sourceLabel: 'VISTA', sourceUrl: null };
+    engine.loadTrace(trace([1, 2]), ['visitar'], [java]);
+    engine.next();
+    engine.setMode('2D');
+    expect(engine.getState().representations).toEqual([java]);
+    expect(engine.getState().stepIndex).toBe(1);
+    const frame = engine.getState().structure;
+    engine.setMode('3D');
+    expect(engine.getState().structure).toBe(frame);
+    engine.loadStructure([], []);
+    expect(engine.getState().representations).toEqual([]);
+    engine.loadTrace(trace([3]), ['visitar'], [java]);
+    engine.clear();
+    expect(engine.getState().representations).toEqual([]);
+  });
+});

@@ -39,7 +39,7 @@ describe('CA-1 · Registro e inicio de sesion en la pantalla de bienvenida', () 
     cy.get('[data-cy=submit]').should('not.be.disabled');
   });
 
-  it('registra una cuenta nueva y entra directamente', () => {
+  it('verifica el correo de una cuenta nueva antes de entrar', () => {
     cy.uniqueEmail('registro').then((email) => {
       cy.get('[data-cy=tab-register]').click();
       cy.get('[data-cy=input-displayName]').type('Ana Restrepo');
@@ -48,6 +48,13 @@ describe('CA-1 · Registro e inicio de sesion en la pantalla de bienvenida', () 
       cy.get('[data-cy=input-password]').type('clave12345');
       cy.get('[data-cy=input-confirmPassword]').type('clave12345');
       cy.get('[data-cy=submit]').click();
+
+      cy.get('[data-cy=email-verification]').should('be.visible');
+      cy.storedSession().then(s => expect(s.accessToken).to.be.null);
+      cy.verificationCodeFromInbox(email).then(code => {
+        cy.get('[data-cy=input-verificationCode]').type(code, { log: false });
+        cy.get('[data-cy=submit]').click();
+      });
 
       // Una cuenta recien registrada es estudiante, asi que aterriza en el lienzo.
       cy.location('pathname').should('eq', '/');

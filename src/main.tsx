@@ -1,3 +1,4 @@
+import { initializeTheme } from './lib/theme';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
@@ -9,7 +10,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage.tsx';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 import { RedirectIfAuthenticated, RequireAuth, RequireRole } from './routes/guards.tsx';
 
-document.documentElement.classList.add('dark');
+initializeTheme();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

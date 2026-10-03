@@ -25,6 +25,8 @@ declare global {
     interface Chainable {
       /** Correo institucional unico, para que cada prueba cree su propia cuenta. */
       uniqueEmail(prefix?: string): Chainable<string>;
+      /** Lee exclusivamente el buzón SMTP local de pruebas, nunca un endpoint de producción. */
+      verificationCodeFromInbox(email: string): Chainable<string>;
       /** Autentica por API y deja la sesion lista, sin pasar por el formulario. */
       loginByApi(email: string, password: string): Chainable<void>;
       /** Registra un estudiante nuevo por API, deja la sesion lista y devuelve su correo. */
@@ -74,14 +76,16 @@ Cypress.Commands.add('storedSession', () => {
 
 Cypress.Commands.add('registerStudentByApi', (prefix = 'e2e', courseCode = 'CEDI-G1') => {
   const email = `${prefix}.${Date.now()}.${Math.floor(Math.random() * 1000)}@u.icesi.edu.co`;
-  return cy
-    .request('POST', '/api/auth/register', {
-      displayName: `E2E ${prefix}`,
-      email,
-      password: 'clave12345',
-      confirmPassword: 'clave12345',
-      courseCode,
-    })
+  const intent = {
+    displayName: `E2E ${prefix}`, email, password: 'clave12345',
+    confirmPassword: 'clave12345', courseCode,
+  };
+  return cy.request('POST', '/api/auth/registration-code', intent)
+    .then(({ body: receipt }) => cy.verificationCodeFromInbox(email).then(verificationCode =>
+      cy.request('POST', '/api/auth/register', {
+        ...intent, verificationId: receipt.verificationId, verificationCode,
+      })
+    ))
     .then(({ body }) =>
       cy.window().then((win) => {
         win.localStorage.setItem(ACCESS_KEY, body.accessToken);
@@ -105,5 +109,21 @@ Cypress.Commands.add('adminSetQuota', (courseCode: string, dailyQuota: number) =
     })
       .its('status')
       .should('eq', 200);
+  });
+});
+
+
+Cypress.Commands.add('verificationCodeFromInbox', (email: string) => {
+  return cy.env<{ mailpitUrl: string }>(['mailpitUrl'], { log: false }).then(({ mailpitUrl: inbox }) => {
+    // SMTP completes before registration-code returns. Unique fixture email avoids old mail.
+    return cy.request({ url: `${inbox}/api/v1/search`, qs: { query: `to:${email}` }, log: false })
+      .then(({ body }) => {
+        expect(body.messages, 'SMTP message in local test inbox').to.have.length.greaterThan(0);
+        return cy.request({ url: `${inbox}/api/v1/message/${body.messages[0].ID}`, log: false });
+      }).then(({ body }) => {
+        const code = body.Text.match(/VISTA es: ([0-9]{6})/);
+        expect(code, 'Six-digit verification code').not.to.be.null;
+        return code[1] as string;
+      });
   });
 });

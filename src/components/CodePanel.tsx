@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Code, Layers, Variable } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useGraphStore } from '@/store/graphStore';
@@ -11,34 +11,78 @@ import { useGraphStore } from '@/store/graphStore';
  * hay nada que sincronizar. Sólo se monta cuando el rastro trae código; las secciones de estado
  * sólo cuando el paso trae datos.
  */
-export function CodePanel() {
-  const code = useGraphStore((s) => s.code);
+export function CodePanel({ tutorialExpanded = false }: { tutorialExpanded?: boolean }) {
+  const pseudocode = useGraphStore((s) => s.code);
+  const representations = useGraphStore((s) => s.representations);
   const steps = useGraphStore((s) => s.steps);
   const currentStepIndex = useGraphStore((s) => s.currentStepIndex);
   const selected = useGraphStore((s) => s.selectedAlgorithm);
-  const [collapsed, setCollapsed] = useState(false);
+  const [copyStatus, setCopyStatus] = useState('');
+  const [language, setLanguage] = useState('pseudocode');
+  const linesRef = useRef<HTMLOListElement>(null);
+  const activeRef = useRef<HTMLLIElement>(null);
+  const [userCollapsed, setCollapsed] = useState(() => window.matchMedia('(max-width: 639px)').matches);
+  const collapsed = userCollapsed && !tutorialExpanded;
   const [varsOpen, setVarsOpen] = useState(true);
   const [stackOpen, setStackOpen] = useState(true);
 
-  if (!code || code.length === 0 || steps.length === 0) return null;
+  const representation = representations.find(r => r.language === language);
+  const code = representation?.code ?? pseudocode;
   const current = steps[currentStepIndex];
-  const activeLine = current?.line ?? null;
+  const logicalLine = current?.line ?? null;
+  const activeLines = representation
+    ? (logicalLine === null ? [] : representation.lineMap[logicalLine] ?? []).filter(n => n > 0 && n <= (code?.length ?? 0))
+    : (logicalLine === null ? [] : [logicalLine]);
+  const activeLine = activeLines[0] ?? null;
+  const label = representation?.label ?? 'Pseudocódigo';
+
+  // Scroll only the code scroller; the canvas, page and action buttons stay in place.
+  useLayoutEffect(() => {
+    const list = linesRef.current;
+    const line = activeRef.current;
+    if (!list || !line || collapsed) return;
+    const top = line.offsetTop;
+    if (top < list.scrollTop || top + line.offsetHeight > list.scrollTop + list.clientHeight) {
+      list.scrollTop = Math.max(0, top - list.clientHeight / 2);
+    }
+  }, [activeLine, language, collapsed]);
+
+  if (!code || code.length === 0 || steps.length === 0) return null;
   const variables = current?.variables ?? null;
   const callStack = current?.callStack ?? null;
   const varEntries = variables ? Object.entries(variables) : [];
   const frames = callStack ? [...callStack].reverse() : [];
   const pointed = current?.highlightedNodeIds?.length ? current.highlightedNodeIds[0] : null;
 
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(code!.join('\n'));
+      setCopyStatus('Código copiado.');
+    } catch {
+      setCopyStatus('No se pudo copiar. Puedes descargar el archivo.');
+    }
+  }
+
+  function downloadCode() {
+    const url = URL.createObjectURL(new Blob([code!.join('\n') + '\n'], { type: 'text/plain;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = representation?.fileName ?? `${selected?.type ?? 'estructura'}-${selected?.operation ?? 'algoritmo'}.txt`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   return (
     <div
       data-cy="code-panel"
       data-active-line={activeLine ?? ''}
-      className="absolute bottom-[112px] left-4 pointer-events-auto w-[380px] max-w-[calc(100%-2rem)] border border-border bg-black-main/90 backdrop-blur-md"
+      data-language={representation?.language ?? 'pseudocode'}
+      className="absolute bottom-[112px] left-4 pointer-events-auto w-[380px] max-w-[calc(100%_-_2rem)] max-h-[calc(100%_-_12rem)] max-sm:max-h-[35%] overflow-y-auto border border-border bg-shell/90 backdrop-blur-md"
     >
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
-          <Code className="size-3.5 text-primary-light shrink-0" />
-          <span className="text-[12px] font-semibold text-white truncate">{selected?.label ?? 'Código'}</span>
+          <Code aria-hidden="true" className="size-3.5 text-primary-light shrink-0" />
+          <span className="text-[12px] font-semibold text-foreground truncate">{selected?.label ?? 'Código'}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-mono text-primary-light" data-cy="code-step-counter">
@@ -50,7 +94,7 @@ export function CodePanel() {
             aria-expanded={!collapsed}
             aria-label={collapsed ? 'Mostrar código' : 'Ocultar código'}
             data-cy="code-toggle"
-            className="p-0.5 text-muted-foreground hover:text-white transition-colors duration-150"
+            className="p-0.5 text-muted-foreground hover:text-foreground transition-colors duration-150"
           >
             {collapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
           </button>
@@ -58,26 +102,51 @@ export function CodePanel() {
       </div>
       {!collapsed && (
         <>
-          <ol className="py-1.5 font-mono text-[12px]" aria-label="Pseudocódigo" data-cy="code-lines">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 text-[11px]">
+            <div role="group" aria-label="Vista del código" className="mr-auto flex items-center gap-1">
+              {[{ language: 'pseudocode', label: 'Pseudocódigo' }, ...representations].map(r => (
+                <button key={r.language} type="button" data-cy={`code-view-${r.language}`}
+                  aria-pressed={(representation?.language ?? 'pseudocode') === r.language}
+                  onClick={() => { setLanguage(r.language); setCopyStatus(''); }}
+                  className={cn('px-1 py-1 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-ring',
+                    (representation?.language ?? 'pseudocode') === r.language ? 'text-primary-light font-semibold' : 'text-muted-foreground')}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <button type="button" data-cy="code-copy" onClick={() => void copyCode()} className="border border-border px-2 py-1 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-ring text-foreground">Copiar</button>
+            <button type="button" data-cy="code-download" onClick={downloadCode} className="border border-border px-2 py-1 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-ring text-foreground">Descargar</button>
+          </div>
+          <p role="status" className="px-3 text-[11px] text-muted-foreground">{copyStatus}</p>
+          <p className="px-3 pb-1 text-[10px] text-muted-foreground" data-cy="code-source">
+            {representation?.sourceUrl
+              ? <a href={representation.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline focus-visible:outline-2 focus-visible:outline-ring">{representation.sourceLabel}</a>
+              : representation?.sourceLabel ?? 'Pseudocódigo de VISTA'} · Solo lectura
+          </p>
+          {activeLine === null && <p className="px-3 text-[11px] text-muted-foreground" data-cy="code-no-line">
+            {logicalLine === null ? 'Este paso es un resumen; no ejecuta una línea.' : 'Sin línea equivalente instrumentada en esta vista.'}
+          </p>}
+          <ol ref={linesRef} tabIndex={0} translate="no" className="focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring relative max-h-[min(16rem,18vh)] overflow-auto overscroll-contain py-1.5 font-mono text-[12px]" aria-label={label} data-cy="code-lines">
             {code.map((text, i) => {
               const n = i + 1;
-              const active = n === activeLine;
+              const active = activeLines.includes(n);
               return (
                 <li
                   key={n}
+                  ref={n === activeLine ? activeRef : undefined}
                   data-cy={`code-line-${n}`}
                   data-active={active ? 'true' : 'false'}
                   aria-current={active ? 'step' : undefined}
                   className={cn(
                     'flex items-center gap-3 px-3 py-[3px] border-l-2 whitespace-pre',
-                    active ? 'bg-primary/20 border-primary text-white font-semibold' : 'border-transparent text-[#d4d4d8]'
+                    active ? 'bg-primary/20 border-primary text-foreground font-semibold' : 'border-transparent text-code-text'
                   )}
                 >
-                  <span className={cn('w-4 text-right text-[11px]', active ? 'text-primary-light' : 'text-muted-foreground')}>
+                  <span className={cn('w-6 shrink-0 tabular-nums text-right text-[11px]', active ? 'text-primary-light' : 'text-muted-foreground')}>
                     {n}
                   </span>
                   <span className="flex-1">{text}</span>
-                  {active && <span aria-hidden="true" className="text-orange-main">◀</span>}
+                  {active && <span aria-hidden="true" className="text-annotation-orange">◀</span>}
                 </li>
               );
             })}
@@ -97,7 +166,7 @@ export function CodePanel() {
                 <span className="text-[9px] font-bold tracking-[0.15em] text-muted-foreground uppercase">Variables</span>
                 {pointed && (
                   <span className="ml-auto text-[10px] text-muted-foreground" data-cy="code-pointed-node">
-                    nodo apuntado: <span className="font-mono text-orange-main">{pointed.replace(/^node-/, '')}</span>
+                    nodo apuntado: <span className="font-mono text-annotation-orange">{pointed.replace(/^node-/, '')}</span>
                   </span>
                 )}
               </button>
@@ -109,8 +178,8 @@ export function CodePanel() {
                       data-cy={`var-${name}`}
                       className={cn('flex items-center justify-between gap-3 px-3 py-[3px] pl-8', i === 0 && 'bg-orange-main/10')}
                     >
-                      <dt className={cn(i === 0 ? 'text-orange-main' : 'text-muted-foreground')}>{name}</dt>
-                      <dd className="text-white truncate" data-cy={`var-${name}-value`}>
+                      <dt className={cn(i === 0 ? 'text-annotation-orange' : 'text-muted-foreground')}>{name}</dt>
+                      <dd className="text-foreground truncate" data-cy={`var-${name}-value`}>
                         {value}
                       </dd>
                     </div>
@@ -150,7 +219,7 @@ export function CodePanel() {
                         className={cn('flex items-center gap-2 px-3 py-[3px] pl-8', i === 0 && 'bg-primary/15')}
                       >
                         <span className="w-4 text-right text-[10px] text-muted-foreground">{depth}</span>
-                        <span className={cn(i === 0 ? 'text-primary-light font-semibold' : 'text-[#d4d4d8]')}>
+                        <span className={cn(i === 0 ? 'text-primary-light font-semibold' : 'text-code-text')}>
                           {f.name}({params})
                         </span>
                         {i === 0 && <span className="ml-auto text-[10px] text-muted-foreground">← tope</span>}

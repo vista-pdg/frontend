@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -11,20 +9,7 @@ import { session } from '@/lib/session';
 import { logout as logoutRequest } from '@/services/authService';
 import type { AuthUser, Role } from '@/types/auth';
 
-interface AuthContextValue {
-  user: AuthUser | null;
-  roles: Role[];
-  isAuthenticated: boolean;
-  isTeacher: boolean;
-  isAdmin: boolean;
-  hasRole: (role: Role) => boolean;
-  /** Ruta a la que corresponde entrar según el rol. */
-  homeRoute: string;
-  refreshFromStorage: () => void;
-  logout: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null);
+import { AuthContext, type AuthContextValue } from './useAuth';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => session.user());
@@ -59,10 +44,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, logout, refreshFromStorage]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
-  return ctx;
 }

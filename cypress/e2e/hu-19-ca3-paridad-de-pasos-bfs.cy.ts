@@ -1,3 +1,4 @@
+import { openSidebar } from '../support/navigation';
 /// <reference types="cypress" />
 import { generateByChat } from '../support/hu19';
 
@@ -27,6 +28,7 @@ describe('HU-19 · CA-3 Paridad de pasos BFS entre 3D y 2D', () => {
   }
 
   it('el mismo grafo produce la misma secuencia de estados y el mismo número de pasos', () => {
+    openSidebar();
     cy.get('[data-cy=demo-graph-simple]').click();
     cy.get('[data-cy=algo-start]').should('exist').select('V1');
     runBfs('bfs3d');

@@ -11,8 +11,8 @@ export interface GenerateResult {
   memory: boolean | null;
 }
 
-export async function generateGraphWithQuota(prompt: string): Promise<GenerateResult> {
-  const res = await http.post<StructureResponse>('/generate', { prompt });
+export async function generateGraphWithQuota(prompt: string, type: string | null = null, subtype: string | null = null): Promise<GenerateResult> {
+  const res = await http.post<StructureResponse>('/generate', { prompt, type, subtype });
   if (res.data.error) {
     throw new Error(res.data.message ?? 'Error desconocido del servidor');
   }

@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from 'react';
+import { useMemo, useEffect, useLayoutEffect, useRef, useCallback, type ComponentRef } from 'react';
 import { OrbitControls } from '@react-three/drei';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -28,14 +28,17 @@ interface CameraRigProps {
 
 function CameraRig({ nodes, autoRotate, cameraResetKey }: CameraRigProps) {
   const { camera } = useThree();
-  const controlsRef = useRef<any>(null);
+  const controlsRef = useRef<ComponentRef<typeof OrbitControls>>(null);
   const prevNodeKey = useRef('');
+  const nodesRef = useRef(nodes);
+  useLayoutEffect(() => { nodesRef.current = nodes; }, [nodes]);
 
   const nodeKey = nodes.map((n) => n.id).join(',');
 
-  function centerCamera() {
-    if (nodes.length === 0) return;
-    const { center, radius } = computeBounds(nodes);
+  const centerCamera = useCallback(() => {
+    const currentNodes = nodesRef.current;
+    if (currentNodes.length === 0) return;
+    const { center, radius } = computeBounds(currentNodes);
     const fov = (camera as THREE.PerspectiveCamera).fov ?? 55;
     const dist = (radius / Math.tan((fov * Math.PI) / 360)) * 1.4;
 
@@ -47,22 +50,21 @@ function CameraRig({ nodes, autoRotate, cameraResetKey }: CameraRigProps) {
       controlsRef.current.target.copy(center);
       controlsRef.current.update();
     }
-  }
+  }, [camera]);
 
   // Re-center when node set changes — delayed so camera waits for node animations to settle
   useEffect(() => {
-    if (nodeKey === prevNodeKey.current || nodes.length === 0) return;
+    if (nodeKey === prevNodeKey.current || !nodeKey) return;
     prevNodeKey.current = nodeKey;
     const timer = setTimeout(centerCamera, 500);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodeKey]);
+  }, [nodeKey, centerCamera]);
 
   // Re-center on manual camera reset
   useEffect(() => {
     if (cameraResetKey === 0) return;
     centerCamera();
-  }, [cameraResetKey]);
+  }, [cameraResetKey, centerCamera]);
 
   return (
     <OrbitControls

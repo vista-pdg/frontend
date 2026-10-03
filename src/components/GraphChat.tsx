@@ -50,11 +50,11 @@ export default function GraphChat() {
   const showSuggestions = messages.length === 1;
 
   return (
-    <div className="flex w-80 max-h-[70vh] flex-col border border-primary/30 bg-black-main/90 shadow-2xl backdrop-blur-md scrollbar-custom">
+    <div className="flex w-80 max-h-[70vh] flex-col border border-primary/30 bg-shell/90 shadow-2xl backdrop-blur-md scrollbar-custom">
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-primary/30 bg-primary/10 px-4 py-3 shrink-0">
         <span className="size-2 rounded-full bg-secondary shadow-[0_0_6px_#4cb979]" />
-        <span className="text-sm font-semibold tracking-wide text-white">
+        <span className="text-sm font-semibold tracking-wide text-foreground">
           GraphBuilder AI
         </span>
       </div>
@@ -68,7 +68,7 @@ export default function GraphChat() {
               className={cn(
                 'max-w-[88%] px-3 py-2 text-[13px] leading-relaxed wrap-break-word',
                 msg.role === 'user'
-                  ? 'self-end bg-primary/40 text-white'
+                  ? 'self-end bg-primary/40 text-foreground'
                   : msg.role === 'error'
                   ? 'self-start border border-destructive/40 bg-destructive/10 text-red-300'
                   : 'self-start bg-card/80 text-muted-foreground'
@@ -127,13 +127,13 @@ export default function GraphChat() {
           placeholder="Describe tu grafo… (Enter para enviar)"
           disabled={loading}
           rows={2}
-          className="flex-1 resize-none bg-card/60 border-primary/30 text-white placeholder:text-muted-foreground text-[13px] focus-visible:ring-primary/40"
+          className="flex-1 resize-none bg-card/60 border-primary/30 text-foreground placeholder:text-muted-foreground text-[13px] focus-visible:ring-primary/40"
         />
         <Button
           type="submit"
           size="icon"
           disabled={loading || !input.trim()}
-          className="self-end bg-primary hover:bg-primary-light text-white shrink-0 transition-colors duration-150"
+          className="self-end bg-primary hover:bg-primary-light text-foreground shrink-0 transition-colors duration-150"
         >
           <SendHorizonal className="size-4" />
         </Button>

@@ -1,3 +1,4 @@
+import { openSidebar } from '../support/navigation';
 /// <reference types="cypress" />
 import { generateByChat, goToLastStep } from '../support/hu19';
 
@@ -25,6 +26,7 @@ describe('HU-21 · CA-6 Resiliencia del registro analítico', () => {
     cy.get('[data-cy=canvas-3d]').should('exist');
     generateByChat('grafo ciclo de 6 nodos', 6);
 
+    openSidebar();
     cy.get('[data-cy=demo-graph-simple]').click();
     cy.get('[data-cy=algo-start]').should('exist').select('V1');
     cy.intercept('POST', '/api/algorithm/steps').as('steps');

@@ -35,12 +35,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Informativo, no bloqueante, mientras sigan los 11 hallazgos preexistentes en los componentes
-      # 3D (CanvasOverlay, NodeSphere, GraphScene). Ninguna HU los ha tocado todavía; el día que se
-      # salden, este paso pasa a bloquear quitando continue-on-error.
       - name: Lint
         run: npm run lint
-        continue-on-error: true
 
   # El flujo compartido levanta el backend de la rama pareja (mismo nombre) si existe, o main, con
   # este frontend, y corre Cypress en Chromium y Firefox, los dos navegadores que exige la

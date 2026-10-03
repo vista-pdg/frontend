@@ -30,16 +30,10 @@ describe('HU-17 · CA-6 Ajuste de la cuota por el administrador', () => {
     cy.get('[data-cy=quota-saved-CEDI-G1]').should('be.visible');
 
     // Aplica a todos los estudiantes del curso: uno nuevo ve 60 sin hacer nada mas.
-    cy.request('POST', '/api/auth/register', {
-      displayName: 'Alumno Sesenta',
-      email: `sesenta.${Date.now()}@u.icesi.edu.co`,
-      password: 'clave12345',
-      confirmPassword: 'clave12345',
-      courseCode: 'CEDI-G1',
-    }).then(({ body }) => {
+    cy.registerStudentByApi('sesenta').then(() => cy.storedSession()).then((session) => {
       cy.request({
         url: '/api/assistant/quota',
-        headers: { Authorization: `Bearer ${body.accessToken}` },
+        headers: { Authorization: `Bearer ${session.accessToken}` },
       }).then((res) => {
         expect(res.body.limit).to.eq(60);
         expect(res.body.remaining).to.eq(60);

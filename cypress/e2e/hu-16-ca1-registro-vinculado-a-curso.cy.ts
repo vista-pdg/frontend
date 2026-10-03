@@ -37,6 +37,12 @@ describe('HU-16 · CA-1 Registro exitoso con vinculacion a curso', () => {
     cy.get('[data-cy=input-confirmPassword]').type('clave12345');
     cy.get('[data-cy=submit]').click();
 
+    cy.get('[data-cy=email-verification]').should('be.visible');
+    cy.verificationCodeFromInbox(email).then(code => {
+      cy.get('[data-cy=input-verificationCode]').type(code, { log: false });
+      cy.get('[data-cy=submit]').click();
+    });
+
     // Entonces: me redirige al lienzo
     cy.location('pathname').should('eq', '/');
     cy.storedSession().then((s) => {

@@ -1,6 +1,6 @@
 import http from '@/lib/http';
 import { session } from '@/lib/session';
-import type { AuthResponse, RegisterPayload } from '@/types/auth';
+import type { AuthResponse, RegisterPayload, RegistrationIntent, VerificationResponse } from '@/types/auth';
 
 export async function register(payload: RegisterPayload): Promise<AuthResponse> {
   const { data } = await http.post<AuthResponse>('/auth/register', payload);
@@ -30,4 +30,9 @@ export async function logout(): Promise<void> {
   } finally {
     session.clear();
   }
+}
+
+export async function requestRegistrationCode(payload: RegistrationIntent): Promise<VerificationResponse> {
+  const { data } = await http.post<VerificationResponse>('/auth/registration-code', payload);
+  return data;
 }

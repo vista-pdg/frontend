@@ -37,10 +37,11 @@ describe('HU-32 · CA-2/CA-3 Cambio de propiedad y de tipo', () => {
     });
   });
 
-  it('nombrar otra familia empieza de cero y la sesión pasa a la nueva estructura', () => {
+  it('seleccionar otra familia empieza de cero y la sesión pasa a la nueva estructura', () => {
     chat('arbol con insercion de 10, 5, 15');
     cy.get('[data-cy=canvas-2d]').should('have.attr', 'data-kind', 'tree');
 
+    cy.get('[data-cy=nav-stack]').click();
     chat('ahora una pila con 3, 42, 8', 'stack');
     cy.get('[data-cy=canvas-2d]').should('have.attr', 'data-kind', 'stack');
     nodeLabels().should('deep.equal', ['3', '42', '8']);

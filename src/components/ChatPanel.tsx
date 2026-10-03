@@ -114,9 +114,12 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (assistantBlocked !== 'rate' || !rateLimitUntil) return;
-    setNow(Date.now());
+    const first = window.setTimeout(() => setNow(Date.now()), 0);
     const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
   }, [assistantBlocked, rateLimitUntil]);
 
   // La cuenta atrás de la sesión (HU-32) se mide en minutos: basta con refrescar cada 20 s. El
@@ -154,7 +157,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     : quota.remaining === 0
       ? 'text-red-400'
       : quota.warning
-        ? 'text-yellow-main'
+        ? 'text-annotation-yellow'
         : 'text-muted-foreground';
 
   /**
@@ -220,10 +223,11 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   return (
     <div
       data-cy="chat-panel"
+      inert={!open}
       data-open={open ? 'true' : 'false'}
       className={cn(
-        'flex flex-col h-full border-l border-border bg-black-main shrink-0',
-        'transition-all duration-300 ease-in-out overflow-hidden',
+        'relative max-lg:absolute max-lg:top-0 max-lg:right-0 max-lg:h-[calc(100%_-_4rem)] max-lg:z-30 flex flex-col h-full border-l border-border bg-shell shrink-0',
+        'transition-[width,opacity] duration-300 ease-out motion-reduce:transition-none overflow-hidden',
         open ? 'w-80 opacity-100' : 'w-0 opacity-0 pointer-events-none'
       )}
     >
@@ -233,7 +237,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         <div className="flex items-center gap-2 min-w-0">
           <span className="size-2 rounded-full bg-secondary shadow-[0_0_6px_#4cb979] shrink-0 animate-pulse" />
           <div className="flex flex-col min-w-0">
-            <span className="text-sm font-semibold tracking-wide text-white truncate">
+            <span className="text-sm font-semibold tracking-wide text-foreground truncate">
               StructureAI
             </span>
             {counterText && (
@@ -249,7 +253,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
                 data-cy="session-indicator"
                 data-structure={session?.structureType ?? ''}
                 title="El asistente recuerda la estructura del lienzo: puedes pedirle cambios sobre ella"
-                className="flex items-center gap-1 text-[10px] leading-tight text-secondary"
+                className="flex items-center gap-1 text-[10px] leading-tight text-annotation-green"
               >
                 <BrainCircuit className="size-3 shrink-0" />
                 Sesión activa · caduca en {sessionMinutesLeft} min
@@ -274,8 +278,9 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           )}
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-white transition-colors duration-150 p-1"
+            className="text-muted-foreground hover:text-foreground transition-colors duration-150 p-1"
             title="Cerrar panel"
+            aria-label="Cerrar chat"
           >
             <X className="size-4" />
           </button>
@@ -289,9 +294,9 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           data-cy="memory-unavailable"
           className="flex items-start gap-2 border-b border-yellow-main/30 bg-yellow-main/[0.08] px-4 py-2.5 shrink-0"
         >
-          <Brain className="mt-px size-3.5 shrink-0 text-yellow-main" />
+          <Brain className="mt-px size-3.5 shrink-0 text-annotation-yellow" />
           <p className="text-[11px] leading-[1.5] text-muted-foreground">
-            <span className="text-yellow-main">La memoria de la sesión no está disponible.</span>{' '}
+            <span className="text-annotation-yellow">La memoria de la sesión no está disponible.</span>{' '}
             Puedes seguir generando, pero cada instrucción se interpreta desde cero: describe la
             estructura completa.
           </p>
@@ -308,7 +313,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
               className={cn(
                 'max-w-[88%] px-3 py-2 text-[13px] leading-relaxed break-words',
                 msg.role === 'user'
-                  ? 'self-end bg-primary/40 text-white'
+                  ? 'self-end bg-primary/40 text-foreground'
                   : msg.role === 'error'
                   ? 'self-start border border-destructive/40 bg-destructive/10 text-red-300'
                   : 'self-start bg-card/80 text-muted-foreground'
@@ -379,9 +384,9 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           role="status"
           className="flex items-start gap-2.5 border-t border-orange-main/40 bg-orange-main/10 px-3 py-2.5 shrink-0"
         >
-          <Timer className="mt-px size-3.5 shrink-0 text-orange-main" />
+          <Timer className="mt-px size-3.5 shrink-0 text-annotation-orange" />
           <div className="flex flex-col gap-0.5">
-            <span className="text-[12px] font-semibold leading-snug text-orange-main">
+            <span className="text-[12px] font-semibold leading-snug text-annotation-orange">
               Demasiados mensajes seguidos
             </span>
             <span className="text-[11px] leading-snug text-muted-foreground">
@@ -396,9 +401,9 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           role="status"
           className="flex items-start gap-2.5 border-t border-yellow-main/40 bg-yellow-main/10 px-3 py-2.5 shrink-0"
         >
-          <TriangleAlert className="mt-px size-3.5 shrink-0 text-yellow-main" />
+          <TriangleAlert className="mt-px size-3.5 shrink-0 text-annotation-yellow" />
           <div className="flex flex-col gap-0.5">
-            <span className="text-[12px] font-semibold leading-snug text-yellow-main">
+            <span className="text-[12px] font-semibold leading-snug text-annotation-yellow">
               Te quedan {quota.remaining} mensajes hoy
             </span>
             <span className="text-[11px] leading-snug text-muted-foreground">
@@ -410,6 +415,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
 
       {/* Input */}
       <form
+        data-cy="chat-compose"
         onSubmit={(e) => {
           e.preventDefault();
           submit();
@@ -433,14 +439,16 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           disabled={loading || exhausted || rateLimited}
           rows={2}
           data-cy="chat-input"
-          className="flex-1 resize-none bg-card/60 border-primary/30 text-white placeholder:text-muted-foreground text-[13px] focus-visible:ring-primary/40"
+          aria-label="Describe una operación de VISTA"
+          className="flex-1 resize-none bg-card/60 border-primary/30 text-foreground placeholder:text-muted-foreground text-[13px] focus-visible:ring-primary/40"
         />
         <Button
           type="submit"
           size={rateLimited ? 'sm' : 'icon'}
           data-cy="chat-send"
+          aria-label="Enviar mensaje"
           disabled={loading || !hasText || exhausted || rateLimited}
-          className="self-end bg-primary hover:bg-primary-light text-white shrink-0 transition-colors duration-150 disabled:opacity-45"
+          className="self-end bg-primary hover:bg-primary-dark text-primary-foreground shrink-0 transition-colors duration-150 disabled:opacity-45"
         >
           {rateLimited ? (
             <span data-cy="chat-send-countdown" className="text-[12px] font-semibold tabular-nums">

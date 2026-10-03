@@ -138,7 +138,7 @@ export function SvgView({ renderer }: SvgViewProps) {
   const isBox = kind === 'stack' || kind === 'queue';
 
   return (
-    <div data-cy="canvas-2d" data-mode="2D" data-kind={kind} className="absolute inset-0" style={{ background: CANVAS_BACKGROUND }}>
+    <div data-cy="canvas-2d" data-mode="2D" data-kind={kind} className="absolute inset-0" style={{ background: 'var(--canvas)'  }}>
       {empty && ghosts.length === 0 ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 select-none">
           <span className="text-[18px] font-semibold text-primary-light">Sin estructura</span>
@@ -290,7 +290,7 @@ export function SvgView({ renderer }: SvgViewProps) {
                     dominantBaseline={kind === 'stack' ? 'central' : 'auto'}
                     fontSize={11}
                     fontFamily="Geist Variable, Geist, sans-serif"
-                    fill="#a0a0a0"
+                    fill="var(--muted-foreground)"
                     data-role-label={role}
                   >
                     {roleText}

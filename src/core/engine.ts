@@ -1,4 +1,4 @@
-import type { Edge3D, GraphMeta, HighlightType, Node3D } from '@/types/graph';
+import type { CodeRepresentation, Edge3D, GraphMeta, HighlightType, Node3D } from '@/types/graph';
 import {
   EMPTY_STRUCTURE,
   NO_HIGHLIGHT,
@@ -54,6 +54,7 @@ export class VisualizationEngine {
       meta: null,
       trace: [],
       code: null,
+      representations: [],
       mode: requested === '3D' && !webglAvailable ? '2D' : requested,
       webglAvailable,
     };
@@ -101,18 +102,19 @@ export class VisualizationEngine {
       meta,
       trace: [],
       code: null,
+      representations: [],
     };
     this.paint();
     this.emit();
   }
 
   /** Carga un rastro y, si el algoritmo está instrumentado (HU-22a), su pseudocódigo. */
-  loadTrace(steps: ExecutionStep[], code: string[] | null = null): void {
+  loadTrace(steps: ExecutionStep[], code: string[] | null = null, representations: CodeRepresentation[] = []): void {
     if (steps.length === 0) {
       this.clear();
       return;
     }
-    this.state = { ...this.state, trace: steps, code, meta: null, ...frameOf(steps[0], 0) };
+    this.state = { ...this.state, trace: steps, code, representations, meta: null, ...frameOf(steps[0], 0) };
     this.paint();
     this.emit();
   }
@@ -154,6 +156,7 @@ export class VisualizationEngine {
       meta: null,
       trace: [],
       code: null,
+      representations: [],
     };
     this.activeRenderer()?.clear();
     this.emit();

@@ -17,7 +17,7 @@ import {
   Save,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import {
   fetchUsers,
   createUser,
@@ -70,13 +70,13 @@ function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black-main/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-shell/80 backdrop-blur-sm p-4">
       <div className="w-full max-w-md border border-border bg-card/90 backdrop-blur-md">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <p className="text-[13px] font-semibold text-white tracking-wide">{title}</p>
+          <p className="text-[13px] font-semibold text-foreground tracking-wide">{title}</p>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-white transition-colors duration-150 p-1"
+            className="text-muted-foreground hover:text-foreground transition-colors duration-150 p-1"
           >
             <X className="size-4" />
           </button>
@@ -109,7 +109,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       className={cn(
-        'w-full bg-black-main border border-border text-white placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150',
+        'w-full bg-shell border border-border text-foreground placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150',
         props.className
       )}
     />
@@ -205,7 +205,7 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
         </p>
         <button
           onClick={openCreate}
-          className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold px-3 py-1.5 transition-colors duration-150"
+          className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-[12px] font-semibold px-3 py-1.5 transition-colors duration-150"
         >
           <Plus className="size-3.5" />
           Nuevo usuario
@@ -237,7 +237,7 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
             <tbody>
               {users.map((u) => (
                 <tr key={u.id} className="border-b border-border/50 hover:bg-white/3 transition-colors">
-                  <td className="px-4 py-3 text-white font-medium">{u.displayName}</td>
+                  <td className="px-4 py-3 text-foreground font-medium">{u.displayName}</td>
                   <td className="px-4 py-3 text-muted-foreground font-mono">{u.email}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
@@ -259,7 +259,7 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openEdit(u)}
-                        className="text-muted-foreground hover:text-white p-1 transition-colors duration-150"
+                        className="text-muted-foreground hover:text-foreground p-1 transition-colors duration-150"
                       >
                         <Pencil className="size-3.5" />
                       </button>
@@ -320,7 +320,7 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
                         'flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold border transition-colors duration-150',
                         active
                           ? 'bg-primary/20 border-primary/60 text-primary-light'
-                          : 'bg-transparent border-border text-muted-foreground hover:border-primary/40 hover:text-white'
+                          : 'bg-transparent border-border text-muted-foreground hover:border-primary/40 hover:text-foreground'
                       )}
                     >
                       {active && <Check className="size-3" />}
@@ -339,14 +339,14 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
               <button
                 type="button"
                 onClick={closeModal}
-                className="flex-1 border border-border text-muted-foreground hover:text-white text-[12px] py-2 transition-colors duration-150"
+                className="flex-1 border border-border text-muted-foreground hover:text-foreground text-[12px] py-2 transition-colors duration-150"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white text-[12px] font-semibold py-2 transition-colors duration-150"
+                className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-40 text-primary-foreground text-[12px] font-semibold py-2 transition-colors duration-150"
               >
                 {saving ? 'Guardando…' : editing ? 'Actualizar' : 'Crear'}
               </button>
@@ -439,7 +439,7 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
         </p>
         <button
           onClick={openCreate}
-          className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white text-[12px] font-semibold px-3 py-1.5 transition-colors duration-150"
+          className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-[12px] font-semibold px-3 py-1.5 transition-colors duration-150"
         >
           <Plus className="size-3.5" />
           Nuevo rol
@@ -466,7 +466,7 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
               {roles.map((r) => (
                 <tr key={r.id} className="border-b border-border/50 hover:bg-white/3 transition-colors">
                   <td className="px-4 py-3">
-                    <span className="text-white font-semibold tracking-wider">{r.name}</span>
+                    <span className="text-foreground font-semibold tracking-wider">{r.name}</span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
@@ -485,7 +485,7 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openEdit(r)}
-                        className="text-muted-foreground hover:text-white p-1 transition-colors duration-150"
+                        className="text-muted-foreground hover:text-foreground p-1 transition-colors duration-150"
                       >
                         <Pencil className="size-3.5" />
                       </button>
@@ -527,8 +527,8 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
                       className={cn(
                         'flex items-start gap-2.5 text-left px-3 py-2 border transition-colors duration-150',
                         active
-                          ? 'bg-secondary/10 border-secondary/40 text-white'
-                          : 'bg-transparent border-border text-muted-foreground hover:border-secondary/30 hover:text-white'
+                          ? 'bg-secondary/10 border-secondary/40 text-foreground'
+                          : 'bg-transparent border-border text-muted-foreground hover:border-secondary/30 hover:text-foreground'
                       )}
                     >
                       <div
@@ -557,14 +557,14 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
               <button
                 type="button"
                 onClick={closeModal}
-                className="flex-1 border border-border text-muted-foreground hover:text-white text-[12px] py-2 transition-colors duration-150"
+                className="flex-1 border border-border text-muted-foreground hover:text-foreground text-[12px] py-2 transition-colors duration-150"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white text-[12px] font-semibold py-2 transition-colors duration-150"
+                className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-40 text-primary-foreground text-[12px] font-semibold py-2 transition-colors duration-150"
               >
                 {saving ? 'Guardando…' : editing ? 'Actualizar' : 'Crear'}
               </button>
@@ -739,7 +739,7 @@ function CoursesSection() {
                 const dirty = isDirty(c);
                 return (
                   <tr key={c.code} className="border-b border-border/50 hover:bg-white/3 transition-colors" data-cy={`course-row-${c.code}`}>
-                    <td className="px-4 py-3 font-mono text-white">{c.code}</td>
+                    <td className="px-4 py-3 font-mono text-foreground">{c.code}</td>
                     <td className="px-4 py-3 text-muted-foreground">{c.name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{c.termCode}</td>
                     <td className="px-4 py-3">
@@ -756,7 +756,7 @@ function CoursesSection() {
                           aria-label={`Cuota diaria de ${c.code}`}
                           aria-invalid={dirty && !valid}
                           className={cn(
-                            'w-24 bg-black-main border px-2.5 py-1.5 text-[13px] text-white placeholder:text-muted-foreground focus:outline-none transition-colors',
+                            'w-24 bg-shell border px-2.5 py-1.5 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none transition-colors',
                             dirty && !valid ? 'border-destructive' : dirty ? 'border-primary-light' : 'border-border'
                           )}
                         />
@@ -776,7 +776,7 @@ function CoursesSection() {
                           onClick={() => save(c)}
                           disabled={!dirty || !valid || saving === c.code}
                           data-cy={`quota-save-${c.code}`}
-                          className="flex items-center gap-1.5 bg-primary px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="flex items-center gap-1.5 bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground transition-colors hover:bg-primary-dark disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Save className="size-3.5" /> Guardar
                         </button>
@@ -787,7 +787,7 @@ function CoursesSection() {
                             'flex items-center gap-1.5 border px-3 py-1.5 text-[12px] transition-colors',
                             historyFor === c.code
                               ? 'border-primary-light text-primary-light'
-                              : 'border-border text-muted-foreground hover:text-white hover:border-primary/40'
+                              : 'border-border text-muted-foreground hover:text-foreground hover:border-primary/40'
                           )}
                         >
                           <History className="size-3.5" /> Historial
@@ -826,7 +826,7 @@ function CoursesSection() {
                   <span className="w-32 flex items-center gap-2">
                     <span className="text-muted-foreground">{h.previousQuota ?? '—'}</span>
                     <span className="text-muted-foreground">→</span>
-                    <span className="font-semibold text-white">{h.newQuota}</span>
+                    <span className="font-semibold text-foreground">{h.newQuota}</span>
                   </span>
                   <span className="text-muted-foreground">{h.changedBy}</span>
                 </li>
@@ -860,18 +860,18 @@ export function AdminPage() {
   ];
 
   return (
-    <div className="min-h-screen w-screen bg-black-main text-white">
+    <div className="min-h-screen w-screen bg-shell text-foreground">
       <div className="fixed top-0 left-0 right-0 h-[2px] bg-primary" />
 
       {/* Header */}
-      <header className="border-b border-border bg-black-main/90 backdrop-blur-md sticky top-[2px] z-20">
+      <header className="border-b border-border bg-shell/90 backdrop-blur-md sticky top-[2px] z-20">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="size-8 bg-primary flex items-center justify-center shrink-0">
-              <Network className="size-4 text-white" />
+            <div className="size-8 bg-primary flex items-center justify-center shrink-0 text-primary-foreground">
+              <Network className="size-4 text-primary-foreground" />
             </div>
             <div>
-              <span className="text-[13px] font-bold tracking-[0.25em] text-white uppercase">VISTA</span>
+              <span className="text-[13px] font-bold tracking-[0.25em] text-foreground uppercase">VISTA</span>
               <span className="text-muted-foreground mx-2 text-[13px]">/</span>
               <span className="text-[13px] text-primary-light">Admin</span>
             </div>
@@ -880,7 +880,7 @@ export function AdminPage() {
           <div className="flex items-center gap-3">
             <Link
               to="/"
-              className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-white transition-colors duration-150"
+              className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors duration-150"
             >
               <ChevronLeft className="size-3.5" />
               Volver al visualizador
@@ -906,7 +906,7 @@ export function AdminPage() {
       <main className="max-w-6xl mx-auto px-6 py-8">
         {/* Page title */}
         <div className="mb-8">
-          <h1 className="text-[20px] font-bold text-white tracking-tight">
+          <h1 className="text-[20px] font-bold text-foreground tracking-tight">
             Administración
           </h1>
           <p className="text-[13px] text-muted-foreground mt-1">
@@ -924,8 +924,8 @@ export function AdminPage() {
               className={cn(
                 'flex items-center gap-2 px-5 py-3 text-[12px] font-semibold border-b-2 -mb-px transition-colors duration-150',
                 tab === id
-                  ? 'border-primary text-white'
-                  : 'border-transparent text-muted-foreground hover:text-white'
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
             >
               <Icon className="size-3.5" />

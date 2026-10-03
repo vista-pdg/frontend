@@ -1,3 +1,4 @@
+import { openSidebar } from '../support/navigation';
 /// <reference types="cypress" />
 import { generateByChat, goToLastStep } from '../support/hu19';
 import { teacherEvents } from '../support/hu21';
@@ -25,6 +26,7 @@ describe('HU-21 · CA-2 Ejecución de un algoritmo', () => {
   });
 
   it('lanzar BFS registra el algoritmo, el tipo de estructura y los pasos', () => {
+    openSidebar();
     cy.get('[data-cy=demo-graph-simple]').click();
     cy.get('[data-cy=algo-start]').should('exist').select('V1');
     cy.intercept('POST', '/api/algorithm/steps').as('steps');
@@ -41,6 +43,7 @@ describe('HU-21 · CA-2 Ejecución de un algoritmo', () => {
   });
 
   it('llegar al último paso deja un evento con los pasos que el estudiante recorrió', () => {
+    openSidebar();
     cy.get('[data-cy=demo-graph-simple]').click();
     cy.get('[data-cy=algo-start]').should('exist').select('V1');
     cy.intercept('POST', '/api/algorithm/steps').as('steps');
@@ -65,6 +68,7 @@ describe('HU-21 · CA-2 Ejecución de un algoritmo', () => {
   });
 
   it('ir y volver del último paso no cuenta el recorrido dos veces', () => {
+    openSidebar();
     cy.get('[data-cy=demo-graph-simple]').click();
     cy.get('[data-cy=algo-start]').should('exist').select('V1');
     cy.intercept('POST', '/api/algorithm/steps').as('steps');

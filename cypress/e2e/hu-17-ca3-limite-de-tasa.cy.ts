@@ -31,7 +31,7 @@ describe('HU-17 · CA-3 Limite de tasa por rafaga', () => {
     cy.get('[data-cy=chat-toggle]').click();
     cy.get('[data-cy=quota-counter]').should('have.text', '35 mensajes restantes hoy');
 
-    cy.get('[data-cy=chat-input]').type('sexto mensaje');
+    cy.get('[data-cy=chat-input]').type('grafo K3 sexto mensaje');
     cy.get('[data-cy=chat-send]').click();
 
     cy.wait('@generate').then(({ response }) => {
@@ -74,7 +74,7 @@ describe('HU-17 · CA-3 Limite de tasa por rafaga', () => {
         method: 'POST',
         url: '/api/generate',
         headers: auth,
-        body: { prompt: 'sexto' },
+        body: { prompt: 'grafo K3 sexto' },
         failOnStatusCode: false,
       })
         .its('status')
@@ -88,7 +88,7 @@ describe('HU-17 · CA-3 Limite de tasa por rafaga', () => {
         method: 'POST',
         url: '/api/generate',
         headers: { Authorization: `Bearer ${s.accessToken}` },
-        body: { prompt: 'primero de otro' },
+        body: { prompt: 'grafo K3 primero de otro' },
       })
         .its('status')
         .should('eq', 200);

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, BarChart3, Construction, LogOut, Network } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 
 /**
  * Panel analítico del docente — shell.
@@ -14,16 +14,16 @@ export function AnalyticsPage() {
   const { user, logout } = useAuth();
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-black-main" data-cy="analytics-page">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-shell" data-cy="analytics-page">
       <div className="h-[2px] shrink-0 bg-primary" />
 
       <header className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="size-8 bg-primary flex items-center justify-center shrink-0">
-            <Network className="size-4 text-white" />
+          <div className="size-8 bg-primary flex items-center justify-center shrink-0 text-primary-foreground">
+            <Network className="size-4 text-primary-foreground" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[13px] font-bold uppercase leading-none tracking-[0.25em] text-white">
+            <span className="text-[13px] font-bold uppercase leading-none tracking-[0.25em] text-foreground">
               VISTA
             </span>
             <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
@@ -35,7 +35,7 @@ export function AnalyticsPage() {
         <div className="flex items-center gap-3">
           {user && (
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-[11px] font-semibold text-white">{user.displayName}</span>
+              <span className="text-[11px] font-semibold text-foreground">{user.displayName}</span>
               <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
                 Docente
               </span>
@@ -44,7 +44,7 @@ export function AnalyticsPage() {
           <Link
             to="/"
             data-cy="link-to-canvas"
-            className="flex items-center gap-1.5 border border-border px-3 py-1.5 text-[12px] text-muted-foreground transition-colors duration-150 hover:border-primary/40 hover:text-white"
+            className="flex items-center gap-1.5 border border-border px-3 py-1.5 text-[12px] text-muted-foreground transition-colors duration-150 hover:border-primary/40 hover:text-foreground"
           >
             <ArrowLeft className="size-3.5" />
             Ir al visualizador
@@ -67,9 +67,9 @@ export function AnalyticsPage() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <h1 className="text-[26px] font-bold leading-tight text-white">Panel analítico</h1>
+            <h1 className="text-[26px] font-bold leading-tight text-foreground">Panel analítico</h1>
             <p className="text-[14px] leading-[1.65] text-muted-foreground">
-              Llegaste aquí porque tu cuenta tiene rol <span className="text-white">Docente</span>.
+              Llegaste aquí porque tu cuenta tiene rol <span className="text-foreground">Docente</span>.
               Esta sección queda reservada para el seguimiento del curso.
             </p>
           </div>
