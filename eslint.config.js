@@ -20,6 +20,18 @@ export default defineConfig([
     },
   },
   {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-globals': ['error', {
+        globals: ['alert', 'confirm', 'prompt'].map((name) => ({
+          name,
+          message: 'Usa los componentes compartidos Alert y ConfirmationDialog de VISTA.',
+        })),
+        checkGlobalObject: true,
+      }],
+    },
+  },
+  {
     // Specs de Cypress: chai afirma con getters (`expect(x).to.be.null`), que para la regla
     // no-unused-expressions parecen expresiones sueltas. Es el uso previsto de chai, no un
     // descuido, y el resto de reglas siguen aplicando.

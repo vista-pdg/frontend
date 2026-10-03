@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Network,
@@ -8,7 +8,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  X,
   Check,
   ChevronLeft,
   LogOut,
@@ -33,6 +32,9 @@ import {
   fetchQuotaHistory,
 } from '@/services/adminService';
 import { ApiError } from '@/lib/http';
+import { Modal } from '@/components/ui/modal';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { Alert } from '@/components/ui/alert';
 import type {
   UserDto,
   RoleDto,
@@ -60,43 +62,18 @@ function Badge({ children, className }: { children: React.ReactNode; className?:
   );
 }
 
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-shell/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md border border-border bg-card/90 backdrop-blur-md">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <p className="text-[13px] font-semibold text-foreground tracking-wide">{title}</p>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors duration-150 p-1"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-        <div className="p-5">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 function Field({
   label,
   children,
+  htmlFor,
 }: {
   label: string;
   children: React.ReactNode;
+  htmlFor?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
+      <label htmlFor={htmlFor} className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
         {label}
       </label>
       {children}
@@ -131,6 +108,10 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<UserDto | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const deleteTrigger = useRef<HTMLButtonElement | null>(null);
+  const sectionHeading = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     // El .catch importa: sin el, un fallo de carga se convierte en un rechazo de promesa sin
@@ -191,16 +172,17 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
     }
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm('¿Eliminar usuario?')) return;
-    await deleteUser(id);
-    setUsers((prev) => prev.filter((u) => u.id !== id));
+  async function handleDelete() {
+    if (!deleting) return;
+    await deleteUser(deleting.id);
+    setUsers((prev) => prev.filter((u) => u.id !== deleting.id));
+    setNotice(`Usuario eliminado: ${deleting.displayName}.`);
   }
 
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-[11px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
+        <p ref={sectionHeading} tabIndex={-1} data-cy="users-summary" className="text-[11px] font-bold tracking-[0.15em] text-muted-foreground uppercase focus-visible:outline-2 focus-visible:outline-ring">
           {users.length} usuarios registrados
         </p>
         <button
@@ -212,11 +194,14 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
         </button>
       </div>
 
+      {!creating && error && <Alert className="mb-4">{error}</Alert>}
+      {notice && <Alert tone="success" className="mb-4">{notice}</Alert>}
+
       {loading ? (
         <p className="text-[13px] text-muted-foreground">Cargando…</p>
       ) : (
-        <div className="border border-border overflow-hidden">
-          <table className="w-full text-[12px]">
+        <div role="region" aria-label="Tabla de usuarios" tabIndex={0} className="border border-border overflow-x-auto focus-visible:outline-2 focus-visible:outline-ring">
+          <table className="w-full min-w-[640px] text-[12px]">
             <thead>
               <tr className="border-b border-border bg-white/3">
                 <th className="text-left px-4 py-2.5 text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
@@ -236,7 +221,7 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-b border-border/50 hover:bg-white/3 transition-colors">
+                <tr data-cy={`usuario-row-${u.id}`} key={u.id} className="border-b border-border/50 hover:bg-white/3 transition-colors">
                   <td className="px-4 py-3 text-foreground font-medium">{u.displayName}</td>
                   <td className="px-4 py-3 text-muted-foreground font-mono">{u.email}</td>
                   <td className="px-4 py-3">
@@ -250,7 +235,7 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
                   </td>
                   <td className="px-4 py-3">
                     <Badge
-                      className={u.enabled ? 'bg-secondary/15 text-secondary' : 'bg-border text-muted-foreground'}
+                      className={u.enabled ? 'bg-secondary/15 text-annotation-green' : 'bg-border text-muted-foreground'}
                     >
                       {u.enabled ? 'Activo' : 'Inactivo'}
                     </Badge>
@@ -259,13 +244,20 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openEdit(u)}
-                        className="text-muted-foreground hover:text-foreground p-1 transition-colors duration-150"
+                        aria-label={`Editar usuario: ${u.displayName}`}
+                        className="text-muted-foreground hover:text-foreground p-2 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring"
                       >
                         <Pencil className="size-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDelete(u.id)}
-                        className="text-muted-foreground hover:text-destructive p-1 transition-colors duration-150"
+                        onClick={(event) => {
+                          deleteTrigger.current = event.currentTarget;
+                          setNotice(null);
+                          setDeleting(u);
+                        }}
+                        aria-label={`Eliminar usuario: ${u.displayName}`}
+                        data-cy={`delete-usuario-${u.id}`}
+                        className="text-muted-foreground hover:text-destructive p-2 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring"
                       >
                         <Trash2 className="size-3.5" />
                       </button>
@@ -278,19 +270,29 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
         </div>
       )}
 
-      {creating && (
-        <Modal title={editing ? 'Editar usuario' : 'Nuevo usuario'} onClose={closeModal}>
+      <ConfirmationDialog
+        open={deleting !== null}
+        title="¿Eliminar usuario?"
+        description="Se eliminará la cuenta y se cerrarán sus sesiones. Esta acción no se puede deshacer."
+        target={deleting ? { name: deleting.displayName, detail: deleting.email } : null}
+        confirmLabel="Eliminar usuario"
+        onConfirm={handleDelete}
+        onClose={() => setDeleting(null)}
+        restoreFocus={() => deleteTrigger.current?.isConnected ? deleteTrigger.current : sectionHeading.current}
+      />
+
+      <Modal open={creating} title={editing ? 'Editar usuario' : 'Nuevo usuario'} onClose={closeModal} busy={saving}>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Field label="Nombre">
-              <Input
+            <Field label="Nombre" htmlFor="admin-user-name">
+              <Input id="admin-user-name"
                 value={form.displayName}
                 onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
                 placeholder="Juan Pérez"
                 required
               />
             </Field>
-            <Field label="Correo electrónico">
-              <Input
+            <Field label="Correo electrónico" htmlFor="admin-user-email">
+              <Input id="admin-user-email"
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
@@ -298,8 +300,8 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
                 required
               />
             </Field>
-            <Field label={editing ? 'Nueva contraseña (opcional)' : 'Contraseña'}>
-              <Input
+            <Field label={editing ? 'Nueva contraseña (opcional)' : 'Contraseña'} htmlFor="admin-user-password">
+              <Input id="admin-user-password"
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
@@ -330,15 +332,12 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
                 })}
               </div>
             </Field>
-            {error && (
-              <p className="text-[12px] text-destructive border border-destructive/30 bg-destructive/10 px-3 py-2">
-                {error}
-              </p>
-            )}
+            {error && <Alert>{error}</Alert>}
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={closeModal}
+                disabled={saving}
                 className="flex-1 border border-border text-muted-foreground hover:text-foreground text-[12px] py-2 transition-colors duration-150"
               >
                 Cancelar
@@ -352,8 +351,7 @@ function UsersSection({ roles }: { roles: RoleDto[] }) {
               </button>
             </div>
           </form>
-        </Modal>
-      )}
+      </Modal>
     </>
   );
 }
@@ -368,10 +366,15 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
   const [form, setForm] = useState<CreateRoleRequest>({ name: '', permissionIds: [] });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<RoleDto | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const deleteTrigger = useRef<HTMLButtonElement | null>(null);
+  const sectionHeading = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     fetchRoles()
       .then(setRoles)
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'No se pudieron cargar los roles'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -425,16 +428,17 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
     }
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm('¿Eliminar rol?')) return;
-    await deleteRole(id);
-    setRoles((prev) => prev.filter((r) => r.id !== id));
+  async function handleDelete() {
+    if (!deleting) return;
+    await deleteRole(deleting.id);
+    setRoles((prev) => prev.filter((r) => r.id !== deleting.id));
+    setNotice(`Rol eliminado: ${deleting.name}.`);
   }
 
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-[11px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
+        <p ref={sectionHeading} tabIndex={-1} data-cy="roles-summary" className="text-[11px] font-bold tracking-[0.15em] text-muted-foreground uppercase focus-visible:outline-2 focus-visible:outline-ring">
           {roles.length} roles registrados
         </p>
         <button
@@ -446,11 +450,14 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
         </button>
       </div>
 
+      {!creating && error && <Alert className="mb-4">{error}</Alert>}
+      {notice && <Alert tone="success" className="mb-4">{notice}</Alert>}
+
       {loading ? (
         <p className="text-[13px] text-muted-foreground">Cargando…</p>
       ) : (
-        <div className="border border-border overflow-hidden">
-          <table className="w-full text-[12px]">
+        <div role="region" aria-label="Tabla de roles" tabIndex={0} className="border border-border overflow-x-auto focus-visible:outline-2 focus-visible:outline-ring">
+          <table className="w-full min-w-[640px] text-[12px]">
             <thead>
               <tr className="border-b border-border bg-white/3">
                 <th className="text-left px-4 py-2.5 text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
@@ -464,7 +471,7 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
             </thead>
             <tbody>
               {roles.map((r) => (
-                <tr key={r.id} className="border-b border-border/50 hover:bg-white/3 transition-colors">
+                <tr data-cy={`rol-row-${r.id}`} key={r.id} className="border-b border-border/50 hover:bg-white/3 transition-colors">
                   <td className="px-4 py-3">
                     <span className="text-foreground font-semibold tracking-wider">{r.name}</span>
                   </td>
@@ -485,13 +492,20 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openEdit(r)}
-                        className="text-muted-foreground hover:text-foreground p-1 transition-colors duration-150"
+                        aria-label={`Editar rol: ${r.name}`}
+                        className="text-muted-foreground hover:text-foreground p-2 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring"
                       >
                         <Pencil className="size-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDelete(r.id)}
-                        className="text-muted-foreground hover:text-destructive p-1 transition-colors duration-150"
+                        onClick={(event) => {
+                          deleteTrigger.current = event.currentTarget;
+                          setNotice(null);
+                          setDeleting(r);
+                        }}
+                        aria-label={`Eliminar rol: ${r.name}`}
+                        data-cy={`delete-rol-${r.id}`}
+                        className="text-muted-foreground hover:text-destructive p-2 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring"
                       >
                         <Trash2 className="size-3.5" />
                       </button>
@@ -504,11 +518,21 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
         </div>
       )}
 
-      {creating && (
-        <Modal title={editing ? 'Editar rol' : 'Nuevo rol'} onClose={closeModal}>
+      <ConfirmationDialog
+        open={deleting !== null}
+        title="¿Eliminar rol?"
+        description="Solo se pueden eliminar roles sin usuarios asignados. Esta acción no se puede deshacer."
+        target={deleting ? { name: deleting.name } : null}
+        confirmLabel="Eliminar rol"
+        onConfirm={handleDelete}
+        onClose={() => setDeleting(null)}
+        restoreFocus={() => deleteTrigger.current?.isConnected ? deleteTrigger.current : sectionHeading.current}
+      />
+
+      <Modal open={creating} title={editing ? 'Editar rol' : 'Nuevo rol'} onClose={closeModal} busy={saving}>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Field label="Nombre del rol">
-              <Input
+            <Field label="Nombre del rol" htmlFor="admin-role-name">
+              <Input id="admin-role-name"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value.toUpperCase() }))}
                 placeholder="NOMBRE_ROL"
@@ -548,15 +572,12 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
                 })}
               </div>
             </Field>
-            {error && (
-              <p className="text-[12px] text-destructive border border-destructive/30 bg-destructive/10 px-3 py-2">
-                {error}
-              </p>
-            )}
+            {error && <Alert>{error}</Alert>}
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
                 onClick={closeModal}
+                disabled={saving}
                 className="flex-1 border border-border text-muted-foreground hover:text-foreground text-[12px] py-2 transition-colors duration-150"
               >
                 Cancelar
@@ -570,8 +591,7 @@ function RolesSection({ permissions }: { permissions: PermissionDto[] }) {
               </button>
             </div>
           </form>
-        </Modal>
-      )}
+      </Modal>
     </>
   );
 }
@@ -711,9 +731,7 @@ function CoursesSection() {
       </div>
 
       {error && (
-        <p data-cy="courses-error" className="text-[12px] text-red-400 border border-destructive/30 bg-destructive/10 px-3 py-2 mb-3">
-          {error}
-        </p>
+        <Alert className="mb-3"><span data-cy="courses-error">{error}</span></Alert>
       )}
 
       {loading ? (
@@ -860,12 +878,12 @@ export function AdminPage() {
   ];
 
   return (
-    <div className="min-h-screen w-screen bg-shell text-foreground">
+    <div className="h-full w-full overflow-y-auto bg-shell text-foreground">
       <div className="fixed top-0 left-0 right-0 h-[2px] bg-primary" />
 
       {/* Header */}
       <header className="border-b border-border bg-shell/90 backdrop-blur-md sticky top-[2px] z-20">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="size-8 bg-primary flex items-center justify-center shrink-0 text-primary-foreground">
               <Network className="size-4 text-primary-foreground" />
@@ -896,6 +914,7 @@ export function AdminPage() {
               onClick={logout}
               className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-destructive transition-colors duration-150 p-1"
               title="Cerrar sesión"
+              aria-label="Cerrar sesión"
             >
               <LogOut className="size-3.5" />
             </button>
@@ -903,7 +922,7 @@ export function AdminPage() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {/* Page title */}
         <div className="mb-8">
           <h1 className="text-[20px] font-bold text-foreground tracking-tight">
@@ -915,7 +934,7 @@ export function AdminPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-0 border-b border-border mb-6">
+        <div className="flex items-center gap-0 overflow-x-auto overflow-y-hidden border-b border-border mb-6">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
