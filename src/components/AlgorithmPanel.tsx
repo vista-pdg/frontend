@@ -50,7 +50,7 @@ const HIGHLIGHT_CONFIG: Record<string, { label: string; className: string }> = {
   rotated: { label: 'ROTACIÓN', className: 'bg-yellow-main/15 text-annotation-yellow border-yellow-main/40' },
   balanced: { label: 'BALANCEADO', className: 'bg-secondary/15 text-annotation-green border-secondary/40' },
   visit: { label: 'VISITAR', className: 'bg-orange-main/15 text-annotation-orange border-orange-main/40' },
-  frontier: { label: 'EN COLA', className: 'bg-yellow-main/15 text-annotation-yellow border-yellow-main/40' },
+  frontier: { label: 'FRONTERA', className: 'bg-yellow-main/15 text-annotation-yellow border-yellow-main/40' },
   done: { label: 'COMPLETO', className: 'bg-secondary/15 text-annotation-green border-secondary/40' },
   pop: { label: 'POP', className: 'bg-destructive/15 text-red-400 border-destructive/40' },
   dequeue: { label: 'DEQUEUE', className: 'bg-destructive/15 text-red-400 border-destructive/40' },
@@ -120,6 +120,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   const canFallbackToValues = needsStructure && selectedKey !== null && DEFAULT_VALUES[selectedKey] !== undefined;
   const usesValues = selected?.input === 'values' || (needsStructure && canvasNodes.length === 0 && canFallbackToValues);
   const isGraphLike = needsStructure && selected?.type === 'graph';
+  const usesStart = isGraphLike && !['floyd', 'kruskal'].includes(selected?.operation ?? '');
   // Si el nodo elegido ya no está (otro grafo), se recurre al primero: derivado, no sincronizado.
   const start = canvasNodes.some((n) => n.id === chosenStart) ? chosenStart : (canvasNodes[0]?.id ?? '');
   void meta;
@@ -150,7 +151,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
           setError('Genera una estructura desde el chat antes de recorrerla');
           return;
         }
-        await runSelectedAlgorithm({ start: isGraphLike ? start : undefined });
+        await runSelectedAlgorithm({ start: usesStart ? start : undefined });
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error al generar pasos');
@@ -240,10 +241,11 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
             <div className="flex flex-col gap-2 border-t border-border pt-3" data-cy="algo-form">
               {usesValues ? (
                 <>
-                  <label className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
+                  <label htmlFor="algo-values" className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
                     {needsStructure ? 'Valores (el lienzo está vacío: se construye un BST)' : 'Valores'}
                   </label>
                   <input
+                    id="algo-values"
                     type="text"
                     value={valuesInput}
                     onChange={(e) => setValuesInput(e.target.value)}
@@ -253,28 +255,31 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                     className="w-full bg-card/60 border border-primary/30 text-foreground placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150"
                   />
                 </>
-              ) : !isGraphLike ? (
+              ) : !isGraphLike || (!usesStart && canvasNodes.length > 0) ? (
                 <p className="text-[11px] text-muted-foreground leading-relaxed" data-cy="algo-uses-canvas">
-                  Se recorre la estructura del lienzo ({canvasNodes.length} nodos).
+                  Se procesa la estructura del lienzo ({canvasNodes.length} nodos).
                 </p>
               ) : (
                 <>
-                  <label className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
-                    Nodo inicial
-                  </label>
                   {canvasNodes.length > 0 ? (
-                    <select
-                      value={start}
-                      onChange={(e) => setChosenStart(e.target.value)}
-                      data-cy="algo-start"
-                      className="w-full bg-card/60 border border-primary/30 text-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70"
-                    >
-                      {canvasNodes.map((n) => (
-                        <option key={n.id} value={n.id}>
-                          {n.label}
-                        </option>
-                      ))}
-                    </select>
+                    <>
+                      <label htmlFor="algo-start" className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
+                        Nodo inicial
+                      </label>
+                      <select
+                        id="algo-start"
+                        value={start}
+                        onChange={(e) => setChosenStart(e.target.value)}
+                        data-cy="algo-start"
+                        className="w-full bg-card/60 border border-primary/30 text-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70"
+                      >
+                        {canvasNodes.map((n) => (
+                          <option key={n.id} value={n.id}>
+                            {n.label}
+                          </option>
+                        ))}
+                      </select>
+                    </>
                   ) : (
                     <p className="text-[11px] text-muted-foreground leading-relaxed" data-cy="algo-needs-graph">
                       No hay grafo en el lienzo. Genera uno desde el chat (por ejemplo «grafo ciclo de 6 nodos») y
@@ -284,7 +289,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                 </>
               )}
               {error && (
-                <div className="flex items-center gap-1.5 text-[11px] text-red-400" data-cy="algo-error">
+                <div role="alert" className="flex items-center gap-1.5 text-[11px] text-destructive dark:text-red-400" data-cy="algo-error">
                   <AlertCircle className="size-3 shrink-0" />
                   <span>{error}</span>
                 </div>
