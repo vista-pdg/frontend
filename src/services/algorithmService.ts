@@ -10,6 +10,7 @@ export interface AlgorithmRunRequest {
   nodes?: Node3D[];
   edges?: Edge3D[];
   start?: string;
+  argument?: number;
 }
 
 export function algorithmKey(d: Pick<AlgorithmDescriptor, 'type' | 'subtype' | 'operation'>): string {

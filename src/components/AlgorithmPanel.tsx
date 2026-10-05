@@ -1,5 +1,7 @@
 import { algorithmFitsContext } from '@/lib/workContext';
-import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { parseAlgorithmInteger, parseAlgorithmValues } from '@/lib/algorithmInput';
+import { ApiError } from '@/lib/http';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -13,8 +15,12 @@ import { X, FlaskConical, ChevronLeft, ChevronRight, Loader2, AlertCircle, Play 
 const FAMILIES: { id: string; label: string }[] = [
   { id: 'graph', label: 'Grafos' },
   { id: 'tree', label: 'Árboles' },
+  { id: 'heap', label: 'Heaps' },
   { id: 'stack', label: 'Pilas' },
   { id: 'queue', label: 'Colas' },
+  { id: 'linked-list', label: 'Listas enlazadas' },
+  { id: 'hash-table', label: 'Tablas hash' },
+  { id: 'sorting', label: 'Ordenamiento' },
 ];
 
 const ALGO_PRESETS: Record<string, { label: string; values: string; description: string }[]> = {
@@ -38,6 +44,10 @@ const ALGO_PRESETS: Record<string, { label: string; values: string; description:
 
 const DEFAULT_VALUES: Record<string, string> = {
   'tree/avl/insert': '10, 5, 3, 7, 8',
+  'tree/bst/insert': '10, 5, 15, 3, 7',
+  'tree/heap/heapify': '3, 1, 8, 5, 2',
+  'stack/simple/push': '3, 42, 8, 17',
+  'queue/simple/enqueue': '5, 9, 1, 14',
   'tree/bst/inorder': '10, 5, 15, 3, 7',
   'stack/simple/pop': '3, 42, 8, 17',
   'queue/simple/dequeue': '5, 9, 1, 14',
@@ -50,7 +60,7 @@ const HIGHLIGHT_CONFIG: Record<string, { label: string; className: string }> = {
   rotated: { label: 'ROTACIÓN', className: 'bg-yellow-main/15 text-annotation-yellow border-yellow-main/40' },
   balanced: { label: 'BALANCEADO', className: 'bg-secondary/15 text-annotation-green border-secondary/40' },
   visit: { label: 'VISITAR', className: 'bg-orange-main/15 text-annotation-orange border-orange-main/40' },
-  frontier: { label: 'EN COLA', className: 'bg-yellow-main/15 text-annotation-yellow border-yellow-main/40' },
+  frontier: { label: 'FRONTERA', className: 'bg-yellow-main/15 text-annotation-yellow border-yellow-main/40' },
   done: { label: 'COMPLETO', className: 'bg-secondary/15 text-annotation-green border-secondary/40' },
   pop: { label: 'POP', className: 'bg-destructive/15 text-red-400 border-destructive/40' },
   dequeue: { label: 'DEQUEUE', className: 'bg-destructive/15 text-red-400 border-destructive/40' },
@@ -63,6 +73,7 @@ interface AlgorithmPanelProps {
 
 export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   const catalog = useGraphStore((s) => s.catalog);
+  const catalogError = useGraphStore((s) => s.catalogError);
   const catalogLoading = useGraphStore((s) => s.catalogLoading);
   const loadCatalog = useGraphStore((s) => s.loadCatalog);
   const selected = useGraphStore((s) => s.selectedAlgorithm);
@@ -80,6 +91,11 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   // Valores por algoritmo (se conservan al cambiar de uno a otro) y nodo inicial elegido.
   const [valuesByKey, setValuesByKey] = useState<Record<string, string>>({});
   const [chosenStart, setChosenStart] = useState('');
+  const [argumentsByKey, setArgumentsByKey] = useState<Record<string, string>>({});
+  const [invalidField, setInvalidField] = useState<'values' | 'argument' | null>(null);
+  const valuesRef = useRef<HTMLInputElement>(null);
+  const argumentRef = useRef<HTMLInputElement>(null);
+  const pendingRef = useRef<symbol | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // El catálogo se pide al abrir el panel: es del servidor y no cambia con el modo (CA-4).
@@ -89,11 +105,16 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
 
   const selectedKey = selected ? algorithmKey(selected) : null;
   const presets = selectedKey ? (ALGO_PRESETS[selectedKey] ?? []) : [];
-  const valuesInput = selectedKey ? (valuesByKey[selectedKey] ?? DEFAULT_VALUES[selectedKey] ?? '') : '';
+  const valuesInput = selectedKey ? (valuesByKey[selectedKey] ?? DEFAULT_VALUES[selectedKey] ?? (selected?.family === 'sorting' ? '8, 3, 5, 3, -1' : '')) : '';
   const setValuesInput = (v: string) => {
     if (selectedKey) setValuesByKey((m) => ({ ...m, [selectedKey]: v }));
   };
+  const argumentInput = selectedKey ? (argumentsByKey[selectedKey] ?? '') : '';
+  const maxValues = selected?.maxValues ?? (selected?.family === 'sorting' ? 32 : 64);
+  const parameterLabel = selected?.parameter === 'target' ? 'Valor a buscar' : 'Valor a insertar';
   const choose = (d: AlgorithmDescriptor | null) => {
+    pendingRef.current = null;
+    setInvalidField(null);
     setError(null);
     selectAlgorithm(d);
   };
@@ -120,6 +141,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   const canFallbackToValues = needsStructure && selectedKey !== null && DEFAULT_VALUES[selectedKey] !== undefined;
   const usesValues = selected?.input === 'values' || (needsStructure && canvasNodes.length === 0 && canFallbackToValues);
   const isGraphLike = needsStructure && selected?.type === 'graph';
+  const usesStart = isGraphLike && !['floyd', 'kruskal'].includes(selected?.operation ?? '');
   // Si el nodo elegido ya no está (otro grafo), se recurre al primero: derivado, no sincronizado.
   const start = canvasNodes.some((n) => n.id === chosenStart) ? chosenStart : (canvasNodes[0]?.id ?? '');
   void meta;
@@ -127,42 +149,56 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   const currentStep = steps[currentStepIndex] ?? null;
   const hlConfig = currentStep ? HIGHLIGHT_CONFIG[currentStep.highlightType] : null;
 
-  function parseValues(raw: string): number[] | null {
-    const parts = raw.split(/[\s,]+/).filter(Boolean);
-    const nums = parts.map(Number);
-    if (nums.some(isNaN)) return null;
-    return nums;
+  function fieldError(field: 'values' | 'argument', message: string) {
+    setInvalidField(field);
+    setError(message);
+    (field === 'values' ? valuesRef : argumentRef).current?.focus();
   }
 
   async function handleRun() {
-    if (!selected) return;
+    if (!selected || stepsLoading || pendingRef.current) return;
+    const token = Symbol();
+    pendingRef.current = token;
     setError(null);
+    setInvalidField(null);
     try {
-      if (usesValues) {
-        const values = parseValues(valuesInput);
-        if (!values || values.length === 0) {
-          setError('Ingresa valores numéricos separados por comas (ej: 10, 5, 3)');
+      let argument: number | undefined;
+      if (selected.parameter) {
+        const parsed = parseAlgorithmInteger(argumentInput);
+        if (parsed === null) {
+          fieldError('argument', 'Ingresa un entero entre −2147483648 y 2147483647.');
           return;
         }
-        await runSelectedAlgorithm({ values });
+        argument = parsed;
+      }
+      if (usesValues) {
+        const values = parseAlgorithmValues(valuesInput, maxValues);
+        if (!values) {
+          fieldError('values', `Ingresa de 1 a ${maxValues} enteros de 32 bits separados por comas.`);
+          return;
+        }
+        await runSelectedAlgorithm({ values, argument });
       } else {
         if (canvasNodes.length === 0) {
-          setError('Genera una estructura desde el chat antes de recorrerla');
+          setError('Genera una estructura desde el chat antes de ejecutar el algoritmo.');
           return;
         }
-        await runSelectedAlgorithm({ start: isGraphLike ? start : undefined });
+        await runSelectedAlgorithm({ start: usesStart ? start : undefined, argument });
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Error al generar pasos');
+      if (pendingRef.current !== token) return;
+      if (e instanceof ApiError && (e.fieldErrors.argument || e.fieldErrors.values)) {
+        fieldError(e.fieldErrors.argument ? 'argument' : 'values', e.message);
+      } else setError(e instanceof Error ? e.message : 'Error al generar pasos');
+    } finally {
+      if (pendingRef.current === token) pendingRef.current = null;
     }
   }
 
-  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') void handleRun();
-  }
+  const highlightLabel = (label: string) => label === 'ROTACIÓN' && ['sorting', 'heap', 'linked-list'].includes(selected?.family ?? '') ? 'INTERCAMBIO' : label;
 
   const runDisabled =
-    stepsLoading || !selected || (usesValues ? !valuesInput.trim() : canvasNodes.length === 0);
+    stepsLoading || !selected || (usesValues ? !valuesInput.trim() : canvasNodes.length === 0) || (!!selected.parameter && !argumentInput.trim());
 
   return (
     <div
@@ -201,11 +237,17 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
           {/* Catálogo por familia */}
           <div className="flex flex-col gap-3" data-cy="algo-catalog">
             {catalogLoading && catalog.length === 0 && (
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <div role="status" className="flex items-center gap-2 text-[11px] text-muted-foreground">
                 <Loader2 className="size-3 animate-spin" /> Cargando catálogo…
               </div>
             )}
-            {!catalogLoading && byFamily.size === 0 && <p role="status" className="p-3 text-xs text-muted-foreground">No hay algoritmos disponibles para esta estructura. Usa el chat o selecciona otra estructura.</p>}
+            {catalogError && !catalogLoading && (
+              <div className="flex flex-col gap-2 p-3" data-cy="algo-catalog-error">
+                <p role="alert" className="text-xs text-destructive dark:text-red-400">{catalogError}</p>
+                <Button type="button" variant="outline" size="sm" onClick={() => void loadCatalog()} data-cy="algo-retry">Reintentar catálogo</Button>
+              </div>
+            )}
+            {!catalogLoading && !catalogError && byFamily.size === 0 && <p role="status" className="p-3 text-xs text-muted-foreground">No hay algoritmos disponibles para esta estructura. Usa el chat o selecciona otra estructura.</p>}
             {FAMILIES.filter((f) => byFamily.has(f.id)).map((f) => (
               <div key={f.id} className="flex flex-col gap-1" data-cy={`algo-family-${f.id}`}>
                 <p className="text-[9px] font-bold tracking-[0.15em] text-muted-foreground uppercase">{f.label}</p>
@@ -237,44 +279,55 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
 
           {/* Formulario según la entrada del algoritmo */}
           {selected && (
-            <div className="flex flex-col gap-2 border-t border-border pt-3" data-cy="algo-form">
+            <form className="flex flex-col gap-2 border-t border-border pt-3" data-cy="algo-form" aria-busy={stepsLoading} onSubmit={(event) => { event.preventDefault(); void handleRun(); }}>
               {usesValues ? (
                 <>
-                  <label className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
+                  <label htmlFor="algo-values" className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
                     {needsStructure ? 'Valores (el lienzo está vacío: se construye un BST)' : 'Valores'}
                   </label>
                   <input
+                    id="algo-values"
+                    name="values"
+                    ref={valuesRef}
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-invalid={invalidField === 'values'}
+                    aria-describedby={invalidField === 'values' ? 'algo-input-help algo-error' : 'algo-input-help'}
+                    disabled={stepsLoading}
                     type="text"
                     value={valuesInput}
                     onChange={(e) => setValuesInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
                     data-cy="algo-values"
-                    placeholder="Ej: 10, 5, 3, 7, 8"
+                    placeholder="Ej: 10, 5, 3, 7, 8…"
                     className="w-full bg-card/60 border border-primary/30 text-foreground placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150"
                   />
+                  <p id="algo-input-help" className="text-[11px] text-muted-foreground">Hasta {maxValues} enteros{selected.family === 'sorting' ? ' · menor a mayor' : ''}.</p>
                 </>
-              ) : !isGraphLike ? (
+              ) : !isGraphLike || (!usesStart && canvasNodes.length > 0) ? (
                 <p className="text-[11px] text-muted-foreground leading-relaxed" data-cy="algo-uses-canvas">
-                  Se recorre la estructura del lienzo ({canvasNodes.length} nodos).
+                  Se procesa la estructura del lienzo ({canvasNodes.length} nodos).
                 </p>
               ) : (
                 <>
-                  <label className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
-                    Nodo inicial
-                  </label>
                   {canvasNodes.length > 0 ? (
-                    <select
-                      value={start}
-                      onChange={(e) => setChosenStart(e.target.value)}
-                      data-cy="algo-start"
-                      className="w-full bg-card/60 border border-primary/30 text-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70"
-                    >
-                      {canvasNodes.map((n) => (
-                        <option key={n.id} value={n.id}>
-                          {n.label}
-                        </option>
-                      ))}
-                    </select>
+                    <>
+                      <label htmlFor="algo-start" className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
+                        Nodo inicial
+                      </label>
+                      <select
+                        id="algo-start"
+                        value={start}
+                        onChange={(e) => setChosenStart(e.target.value)}
+                        data-cy="algo-start"
+                        className="w-full bg-card/60 border border-primary/30 text-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70"
+                      >
+                        {canvasNodes.map((n) => (
+                          <option key={n.id} value={n.id}>
+                            {n.label}
+                          </option>
+                        ))}
+                      </select>
+                    </>
                   ) : (
                     <p className="text-[11px] text-muted-foreground leading-relaxed" data-cy="algo-needs-graph">
                       No hay grafo en el lienzo. Genera uno desde el chat (por ejemplo «grafo ciclo de 6 nodos») y
@@ -283,14 +336,26 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                   )}
                 </>
               )}
+              {selected.parameter && (
+                <>
+                  <label htmlFor="algo-argument" className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">{parameterLabel}</label>
+                  <input id="algo-argument" name="argument" ref={argumentRef} type="text" inputMode="text" autoComplete="off" spellCheck={false}
+                    value={argumentInput} disabled={stepsLoading}
+                    onChange={(event) => { if (selectedKey) setArgumentsByKey(values => ({ ...values, [selectedKey]: event.target.value })); }}
+                    aria-invalid={invalidField === 'argument'} aria-describedby={invalidField === 'argument' ? 'algo-argument-help algo-error' : 'algo-argument-help'}
+                    placeholder="Ej: 7…" data-cy="algo-argument"
+                    className="w-full bg-card/60 border border-primary/30 text-foreground placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150" />
+                  <p id="algo-argument-help" className="text-[11px] text-muted-foreground">Entero de 32 bits; se conserva la estructura del lienzo.</p>
+                </>
+              )}
               {error && (
-                <div className="flex items-center gap-1.5 text-[11px] text-red-400" data-cy="algo-error">
+                <div id="algo-error" role="alert" className="flex items-center gap-1.5 text-[11px] text-destructive dark:text-red-400" data-cy="algo-error">
                   <AlertCircle className="size-3 shrink-0" />
                   <span>{error}</span>
                 </div>
               )}
               <Button
-                onClick={handleRun}
+                type="submit"
                 data-cy="algo-generate"
                 disabled={runDisabled}
                 className="bg-yellow-main hover:bg-yellow-dark text-black-main font-semibold text-[12px] h-8 transition-colors duration-150"
@@ -329,7 +394,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                   ))}
                 </div>
               )}
-            </div>
+            </form>
           )}
 
           {/* Step details */}
@@ -357,7 +422,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                     'self-start px-2 py-0.5 text-[9px] font-bold tracking-widest uppercase border',
                     hlConfig.className
                   )}>
-                    {hlConfig.label}
+                    {highlightLabel(hlConfig.label)}
                   </span>
                 )}
                 <p className="text-[13px] font-semibold text-foreground leading-snug">
@@ -425,7 +490,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                             'shrink-0 px-1 py-0.5 text-[8px] font-bold tracking-wider uppercase border',
                             cfg.className
                           )}>
-                            {cfg.label}
+                            {highlightLabel(cfg.label)}
                           </span>
                         )}
                         <span className="truncate">{step.title}</span>

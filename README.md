@@ -67,7 +67,21 @@ familia; el mismo en 2D y 3D. Los que construyen su estructura (AVL, pop, dequeu
 BFS recorre el grafo que haya en el lienzo desde el nodo elegido. Los pasos los produce el backend y
 los reproduce el motor en cualquiera de los dos adaptadores.
 
-Los algoritmos instrumentados (inorden, BFS, pop, dequeue) traen su pseudocódigo, la línea que
+El catálogo contextual ahora incluye 43 entradas: operaciones básicas de BST/AVL/B-árbol,
+heap máximo, pila/cola, listas simples/dobles/circulares y hash por encadenamiento, además de seis
+ordenamientos ascendentes (burbuja, selección, inserción, merge, quick y heap sort). Ordenamiento
+aparece junto a listas enlazadas y representa una secuencia horizontal en 2D y 3D.
+
+El servidor indica `parameter` y `maxValues`: la UI muestra un campo «Valor a buscar/insertar»
+cuando corresponde y valida enteros de 32 bits. Las demos de ordenamiento admiten hasta 32 valores;
+las otras nuevas demos por valores, 64. Los errores de campo anuncian el problema y devuelven foco
+al input. Pendientes deshabilitan campos/envío; un error de catálogo ofrece reintento explícito.
+Se reutilizan el reproductor, inspector, pseudocódigo, pila de llamadas, temas y tokens existentes.
+
+Para probar contra un backend aislado, `VISTA_API_TARGET=http://127.0.0.1:8081 npm run dev` cambia
+solo el proxy de desarrollo; su defecto sigue siendo `http://localhost:8080`.
+
+Los algoritmos instrumentados del catálogo traen su pseudocódigo, la línea que
 ejecuta cada paso, las variables vigentes y —en los recursivos— la pila de llamadas: el **panel de
 código** (`CodePanel`) resalta esa línea a la vez que el lienzo resalta el nodo, muestra las
 variables y los marcos, en 2D y en 3D, y «Anterior» devuelve todo al paso previo.
@@ -90,3 +104,7 @@ proxy de `/api` hacia el backend interno (`BACKEND_URL`), con rate limit por IP 
 seguridad (`nginx/default.conf.template`). En cada push a `main`, tras `quality` y `e2e`, el job
 `deploy` de `ci.yml` construye, sube a Artifact Registry y despliega `vista-frontend` en Cloud Run.
 Infraestructura en `vista-pdg/terraform-iac`.
+
+Las cuatro suites `cypress/e2e/basic-{trees,heap-linear,list-hash,sorting}.cy.ts` cubren las 33
+entradas nuevas contra el backend real: resultados, solicitudes con parámetro, geometría lineal
+ordenada y conservación de rastro/paso al cambiar 2D/3D. Las fixtures del lienzo no simulan la API.

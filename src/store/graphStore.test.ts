@@ -58,3 +58,15 @@ describe('shared work context', () => {
     expect(useGraphStore.getState().stepsLoading).toBe(false);
   });
 });
+
+it('sends a scalar and the real canvas to a list operation after sorting', async () => {
+  useGraphStore.getState().clearAll(); vi.clearAllMocks();
+  useGraphStore.getState().setActiveStructureType('linked-list', 'circular');
+  const descriptor: AlgorithmDescriptor = { type: 'linked-list', subtype: 'simple', operation: 'search', family: 'linked-list', label: 'Buscar', description: '', input: 'structure', parameter: 'target' };
+  const node = { id: 'original', label: '7', x: 3, y: 2, z: 1, depth: 0, parent: null, properties: { sequence: true, index: 0 } };
+  engine.loadStructure([node], [], null);
+  useGraphStore.getState().selectAlgorithm(descriptor);
+  vi.mocked(runAlgorithm).mockResolvedValue({ error: false, message: null, steps: [] });
+  await useGraphStore.getState().runSelectedAlgorithm({ argument: 7 });
+  expect(runAlgorithm).toHaveBeenCalledWith(expect.objectContaining({ argument: 7, nodes: [node], edges: [], type: 'linked-list' }));
+});

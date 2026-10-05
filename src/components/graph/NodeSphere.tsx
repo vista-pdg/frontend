@@ -1,6 +1,6 @@
 import { useRef, useLayoutEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
+import { Billboard, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Node3D, HighlightType } from '@/types/graph';
 import { nodeFill } from '@/core';
@@ -80,19 +80,23 @@ export function NodeSphere({ node, radius = 0.4, highlighted = false, highlightT
           />
         </mesh>
       )}
-      <Text
-        position={[0, radius + 0.35, 0]}
-        fontSize={0.32}
-        color="#ffffff"
-        anchorX="center"
-        anchorY="bottom"
-        maxWidth={3}
-        outlineWidth={0.04}
-        outlineColor="#000000"
-        renderOrder={1}
-      >
-        {node.label}
-      </Text>
+      <Billboard follow>
+        <Text
+          position={[0, radius + 0.35, 0]}
+          fontSize={0.32}
+          color="#ffffff"
+          anchorX="center"
+          anchorY="bottom"
+          maxWidth={3}
+          outlineWidth={0.04}
+          outlineColor="#000000"
+          renderOrder={1}
+          material-depthTest={false}
+          material-depthWrite={false}
+        >
+          {node.label}
+        </Text>
+      </Billboard>
     </group>
   );
 }

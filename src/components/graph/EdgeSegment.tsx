@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Line, Text } from '@react-three/drei';
+import { Billboard, Line, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Edge3D, Node3D } from '@/types/graph';
 
@@ -87,18 +87,21 @@ export function EdgeSegment({ edge, nodeMap, nodeRadius = 0.4 }: EdgeSegmentProp
       )}
 
       {edge.weight !== null && (
-        <Text
-          position={geo.mid}
-          fontSize={0.28}
-          color="#E4EB60"
-          anchorX="center"
-          anchorY="middle"
-          outlineWidth={0.03}
-          outlineColor="#000000"
-          renderOrder={1}
-        >
-          {edge.weight}
-        </Text>
+        <Billboard position={geo.mid} follow>
+          <Text
+            fontSize={0.28}
+            color="#E4EB60"
+            anchorX="center"
+            anchorY="middle"
+            outlineWidth={0.03}
+            outlineColor="#000000"
+            renderOrder={1}
+            material-depthTest={false}
+            material-depthWrite={false}
+          >
+            {edge.weight}
+          </Text>
+        </Billboard>
       )}
     </group>
   );

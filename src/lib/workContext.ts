@@ -18,6 +18,8 @@ export function contextKey(type: string | null, subtype: string | null) {
 
 export function algorithmFitsContext(d: AlgorithmDescriptor, type: string | null, subtype: string | null) {
   if (!type) return true;
+  // List operations and sorting support the current singly/doubly/circular scene contract.
+  if (type === 'linked-list' && d.type === type) return true;
   // Inorder accepts AVL's binary-tree shape as well as BST; B-trees do not share that contract.
   return d.type === type && (!subtype || d.subtype === subtype || (subtype === 'avl' && d.operation === 'inorder'));
 }

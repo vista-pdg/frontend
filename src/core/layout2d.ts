@@ -94,6 +94,7 @@ export function detectLayoutKind(structure: StructureState): LayoutKind {
   if (structure.nodes.length === 0) return 'circular';
   if (isStack(structure)) return 'stack';
   if (isQueue(structure)) return 'queue';
+  if (structure.nodes.every(n => n.properties?.sequence === true)) return 'linear';
   if (treeShapeOf(structure)) return 'tree';
   if (isChain(structure)) return 'linear';
   return structure.nodes.length <= 3 ? 'circular' : 'force';
@@ -337,6 +338,13 @@ function circularLayout(nodes: Node3D[]): Layout2D {
 }
 
 function linearLayout({ nodes, edges }: StructureState, opts: Required<LayoutOptions>): Layout2D {
+  if (nodes.every(n => n.properties?.sequence === true)) {
+    const out: Layout2D = {};
+    [...nodes].sort((a, b) => indexOf(a, 0) - indexOf(b, 0)).forEach((n, i) => {
+      out[n.id] = { x: i * opts.gapX * 1.4, y: 0 };
+    });
+    return out;
+  }
   const next = new Map(edges.map((e) => [e.from, e.to]));
   const hasIncoming = new Set(edges.map((e) => e.to));
   const order: string[] = [];
@@ -363,10 +371,15 @@ function linearLayout({ nodes, edges }: StructureState, opts: Required<LayoutOpt
 export function structureFitsFamily(family: string, structure: StructureState): boolean {
   if (structure.nodes.length === 0) return false;
   switch (family) {
+    case 'heap':
     case 'tree':
       return treeShapeOf(structure) !== null && !isStack(structure) && !isQueue(structure);
     case 'graph':
       return !isStack(structure) && !isQueue(structure);
+    case 'hash-table':
+      return structure.nodes.some(n => n.properties?.bucket === true);
+    case 'linked-list':
+      return !isStack(structure) && !isQueue(structure) && structure.nodes.every(n => n.parent === null && n.properties?.bucket !== true);
     case 'stack':
       return isStack(structure);
     case 'queue':

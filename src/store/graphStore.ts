@@ -106,6 +106,7 @@ interface GraphState extends VisualizationMirror {
   /** Catálogo del servidor (HU-19 · CA-4): el mismo en cualquier modo. */
   catalog: AlgorithmDescriptor[];
   catalogLoading: boolean;
+  catalogError: string | null;
   /** Rastro ya reportado como completado; evita repetir el evento al ir y volver del final. */
   reportedTrace: string | null;
   /** Entrada del catálogo elegida en el panel; deriva de algorithmType/Subtype/Operation. */
@@ -133,7 +134,7 @@ interface GraphState extends VisualizationMirror {
    * Ejecuta el algoritmo elegido. Los de entrada `values` reciben los valores; los de entrada
    * `structure` recorren lo que hay en el motor (nodos y aristas actuales) desde `start`.
    */
-  runSelectedAlgorithm: (input: { values?: number[]; start?: string }) => Promise<void>;
+  runSelectedAlgorithm: (input: { values?: number[]; start?: string; argument?: number }) => Promise<void>;
   setCurrentStep: (index: number) => void;
   nextStep: () => void;
   prevStep: () => void;
@@ -168,6 +169,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   stepsLoading: false,
   catalog: [],
   catalogLoading: false,
+  catalogError: null,
   reportedTrace: null,
   selectedAlgorithm: null,
 
@@ -380,7 +382,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   loadCatalog: async () => {
     if (get().catalogLoading) return;
-    set({ catalogLoading: true });
+    set({ catalogLoading: true, catalogError: null });
     try {
       const catalog = await fetchCatalog();
       const { algorithmType, algorithmSubtype, algorithmOperation } = get();
@@ -390,8 +392,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         catalogLoading: false,
         selectedAlgorithm: get().selectedAlgorithm ?? catalog.find((d) => algorithmKey(d) === key) ?? null,
       });
-    } catch {
-      set({ catalogLoading: false });
+    } catch (error: unknown) {
+      set({ catalogLoading: false, catalogError: error instanceof Error ? error.message : 'No se pudo cargar el catálogo' });
     }
   },
 
@@ -408,7 +410,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       contextRevision: get().contextRevision + 1, loading: false, stepsLoading: false });
   },
 
-  runSelectedAlgorithm: async ({ values, start }) => {
+  runSelectedAlgorithm: async ({ values, start, argument }) => {
     const d = get().selectedAlgorithm;
     if (!d) throw new Error('Elige un algoritmo del catálogo');
     if (!algorithmFitsContext(d, get().activeStructureType, get().activeSubtype)) throw new Error('Algoritmo incompatible con el contexto');
@@ -423,6 +425,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         type: d.type,
         subtype: d.subtype,
         operation: d.operation,
+        argument,
         values: useCanvas ? undefined : values,
         nodes: useCanvas ? structure.nodes : undefined,
         edges: useCanvas ? structure.edges : undefined,
