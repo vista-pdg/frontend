@@ -41,10 +41,18 @@ describe('floating code panel containment', () => {
     expect(defaultPanel(compact, true)).toEqual({ x: 16, y: 368, width: 294, height: 300 });
   });
 
+  it('preserves the top toolbar at the reflow viewport of a desktop zoomed to 200%', () => {
+    const bounds = panelBounds(656, 386, false);
+    const rect = defaultPanel(bounds, false);
+    expect(rect.y).toBe(96);
+    expect(rect.height).toBe(178);
+    expect(rect.y + rect.height).toBe(274);
+  });
+
   it('prioritizes playback access when the tutorial leaves a short canvas', () => {
     const bounds = panelBounds(326, 258, true);
     const rect = defaultPanel(bounds, true);
-    expect(rect.height).toBe(130);
+    expect(rect.height).toBe(112);
     expect(rect.y + rect.height).toBe(146);
     expect(defaultPanel(bounds, true, true).y).toBe(102);
   });

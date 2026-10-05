@@ -10,7 +10,9 @@ export const COLLAPSED_PANEL_HEIGHT = 44;
 export function panelBounds(width: number, height: number, compact: boolean): PanelBounds {
   const margin = Math.min(16, width / 4, height / 4);
   const bottomSpace = Math.min(112, Math.max(margin, height - COLLAPSED_PANEL_HEIGHT - margin));
-  const top = Math.min(compact ? 144 : 96, Math.max(margin, height - bottomSpace - 220));
+  // Preserve the toolbar area before preserving nominal panel height. At short heights the
+  // body scrolls; only exceptionally short tutorial canvases relax the top reservation.
+  const top = Math.min(compact ? 144 : 96, Math.max(margin, height - bottomSpace - 112));
   const right = width - margin;
   const bottom = height - bottomSpace;
   return { left: margin, top, right, bottom,
