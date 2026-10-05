@@ -56,6 +56,9 @@ export interface AlgorithmDescriptor {
   label: string;
   description: string;
   input: 'values' | 'structure';
+  /** Optional scalar needed by searches and single-value insertions. */
+  parameter?: 'target' | 'value' | null;
+  maxValues?: number | null;
 }
 
 export interface AlgorithmStep {

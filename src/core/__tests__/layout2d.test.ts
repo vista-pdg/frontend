@@ -262,3 +262,18 @@ describe('layout2D — utilidades', () => {
     expect(edgeEndpoints(edge('a', 'zz'), layout)).toBeNull();
   });
 });
+
+it('keeps an explicitly indexed sorting sequence horizontal after swaps', () => {
+  const nodes = [
+    { id: 'c', label: '3', x: 0, y: 0, z: 0, depth: 0, parent: null, properties: { sequence: true, index: 2 } },
+    { id: 'a', label: '1', x: 0, y: 0, z: 0, depth: 0, parent: null, properties: { sequence: true, index: 0 } },
+    { id: 'b', label: '2', x: 0, y: 0, z: 0, depth: 0, parent: null, properties: { sequence: true, index: 1 } },
+  ];
+  const edges = [{ id: 'ab', from: 'a', to: 'b', weight: null, directed: true }, { id: 'bc', from: 'b', to: 'c', weight: null, directed: true }];
+  const layout = layout2D({ nodes, edges });
+  expect(layout.a.y).toBe(layout.b.y);
+  expect(layout.b.y).toBe(layout.c.y);
+  expect(layout.a.x).toBeLessThan(layout.b.x);
+  expect(layout.b.x).toBeLessThan(layout.c.x);
+  expect(structureFitsFamily('linked-list', { nodes, edges })).toBe(true);
+});
