@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, Code, Layers, Variable } from 'lucide-react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ChevronDown, ChevronRight, GripVertical, Layers, MoveDiagonal2, RotateCcw, Variable } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useGraphStore } from '@/store/graphStore';
+import { useFloatingPanel } from '@/hooks/useFloatingPanel';
 
 /**
  * Panel de código sincronizado (HU-22a) con inspector de variables y pila de llamadas (HU-22b).
@@ -25,6 +26,9 @@ export function CodePanel({ tutorialExpanded = false }: { tutorialExpanded?: boo
   const collapsed = userCollapsed && !tutorialExpanded;
   const [varsOpen, setVarsOpen] = useState(true);
   const [stackOpen, setStackOpen] = useState(true);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const instructionsId = useId();
+  const adjustmentId = useId();
 
   const representation = representations.find(r => r.language === language);
   const code = representation?.code ?? pseudocode;
@@ -35,6 +39,8 @@ export function CodePanel({ tutorialExpanded = false }: { tutorialExpanded?: boo
     : (logicalLine === null ? [] : [logicalLine]);
   const activeLine = activeLines[0] ?? null;
   const label = representation?.label ?? 'Pseudocódigo';
+  const hasCode = Boolean(code?.length && steps.length);
+  const { panelRef, action, announcement, adjust, reset, pointerDown, pointerMove, pointerUp, keyboard, cancel, allowClick, style } = useFloatingPanel(hasCode, collapsed);
 
   // Scroll only the code scroller; the canvas, page and action buttons stay in place.
   useLayoutEffect(() => {
@@ -45,7 +51,7 @@ export function CodePanel({ tutorialExpanded = false }: { tutorialExpanded?: boo
     if (top < list.scrollTop || top + line.offsetHeight > list.scrollTop + list.clientHeight) {
       list.scrollTop = Math.max(0, top - list.clientHeight / 2);
     }
-  }, [activeLine, language, collapsed]);
+  }, [activeLine, language, collapsed, style?.height, adjustOpen]);
 
   if (!code || code.length === 0 || steps.length === 0) return null;
   const variables = current?.variables ?? null;
@@ -74,35 +80,71 @@ export function CodePanel({ tutorialExpanded = false }: { tutorialExpanded?: boo
 
   return (
     <div
+      ref={panelRef}
+      role="region"
+      aria-label="Código del algoritmo"
       data-cy="code-panel"
+      data-panel-action={action ?? 'idle'}
       data-active-line={activeLine ?? ''}
       data-language={representation?.language ?? 'pseudocode'}
-      className="absolute bottom-[112px] left-4 pointer-events-auto w-[380px] max-w-[calc(100%_-_2rem)] max-h-[calc(100%_-_12rem)] max-sm:max-h-[35%] overflow-y-auto border border-border bg-shell/90 backdrop-blur-md"
+      style={style}
+      className={cn('absolute bottom-[112px] left-4 pointer-events-auto flex flex-col w-[380px] max-w-[calc(100%_-_2rem)] overflow-hidden border border-border bg-shell/90 backdrop-blur-md', action && 'select-none')}
     >
-      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
-        <div className="flex items-center gap-2 min-w-0">
-          <Code aria-hidden="true" className="size-3.5 text-primary-light shrink-0" />
+      <p id={instructionsId} className="sr-only">Arrastra para ajustar el panel o haz clic para abrir los botones de ajuste. Usa las flechas; Mayús mueve 32 píxeles. Inicio restablece el panel. Escape cancela el arrastre.</p>
+      <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
+      <div className="flex h-[43px] shrink-0 items-center justify-between gap-1 pr-2 border-b border-border">
+        <button type="button" data-cy="code-move" aria-label="Mover panel de código"
+          title="Arrastra para mover o haz clic para ajustar" aria-describedby={instructionsId}
+          aria-expanded={adjustOpen && !collapsed} aria-controls={adjustmentId}
+          onPointerDown={event => pointerDown(event, 'move')} onPointerMove={pointerMove} onPointerUp={pointerUp}
+          onPointerCancel={cancel} onLostPointerCapture={cancel} onKeyDown={event => keyboard(event, 'move')}
+          onClick={event => { if (allowClick(event.detail)) { setCollapsed(false); setAdjustOpen(open => !open); } }}
+          className="flex h-full min-w-0 flex-1 items-center gap-2 px-2 text-left cursor-grab active:cursor-grabbing touch-none hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring">
+          <GripVertical aria-hidden="true" className="size-4 text-primary-light shrink-0" />
           <span className="text-[12px] font-semibold text-foreground truncate">{selected?.label ?? 'Código'}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono text-primary-light" data-cy="code-step-counter">
+        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className="text-[11px] font-mono tabular-nums text-primary-light" data-cy="code-step-counter">
             {currentStepIndex + 1} / {steps.length}
           </span>
+          <button type="button" data-cy="code-layout-reset" aria-label="Restablecer posición y tamaño del código"
+            title="Restablecer posición y tamaño" onClick={() => { reset(); setAdjustOpen(false); }}
+            className="flex size-8 items-center justify-center text-muted-foreground hover:bg-primary/10 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+            <RotateCcw aria-hidden="true" className="size-3.5" />
+          </button>
           <button
             type="button"
             onClick={() => setCollapsed((c) => !c)}
             aria-expanded={!collapsed}
             aria-label={collapsed ? 'Mostrar código' : 'Ocultar código'}
             data-cy="code-toggle"
-            className="p-0.5 text-muted-foreground hover:text-foreground transition-colors duration-150"
+            className="flex size-8 items-center justify-center text-muted-foreground hover:bg-primary/10 hover:text-foreground transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring"
           >
-            {collapsed ? <ChevronRight className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+            {collapsed ? <ChevronRight aria-hidden="true" className="size-3.5" /> : <ChevronDown aria-hidden="true" className="size-3.5" />}
           </button>
         </div>
       </div>
       {!collapsed && (
         <>
-          <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 text-[11px]">
+          <div className="flex min-h-0 flex-1 flex-col overflow-auto overscroll-contain">
+          <div id={adjustmentId} hidden={!adjustOpen} data-cy="code-layout-controls" className="shrink-0 border-b border-border px-3 py-2">
+            {(['move', 'resize'] as const).map(kind => (
+              <div key={kind} role="group" aria-label={kind === 'move' ? 'Posición del código' : 'Tamaño del código'} className="flex items-center gap-1 py-0.5">
+                <span className="mr-auto text-[11px] text-muted-foreground">{kind === 'move' ? 'Posición' : 'Tamaño'}</span>
+                {([{ id: 'left', Icon: ArrowLeft, dx: -32, dy: 0, name: kind === 'move' ? 'Mover a la izquierda' : 'Reducir ancho' },
+                  { id: 'up', Icon: ArrowUp, dx: 0, dy: -32, name: kind === 'move' ? 'Mover arriba' : 'Reducir alto' },
+                  { id: 'down', Icon: ArrowDown, dx: 0, dy: 32, name: kind === 'move' ? 'Mover abajo' : 'Aumentar alto' },
+                  { id: 'right', Icon: ArrowRight, dx: 32, dy: 0, name: kind === 'move' ? 'Mover a la derecha' : 'Aumentar ancho' }]).map(({ id, Icon, dx, dy, name }) => (
+                  <button key={id} type="button" aria-label={name} title={name} data-cy={`code-${kind}-${id}`}
+                    onClick={() => adjust(kind, dx, dy)}
+                    className="flex size-8 items-center justify-center border border-border text-foreground hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-ring">
+                    <Icon aria-hidden="true" className="size-3.5" />
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2 text-[11px]">
             <div role="group" aria-label="Vista del código" className="mr-auto flex items-center gap-1">
               {[{ language: 'pseudocode', label: 'Pseudocódigo' }, ...representations].map(r => (
                 <button key={r.language} type="button" data-cy={`code-view-${r.language}`}
@@ -117,16 +159,16 @@ export function CodePanel({ tutorialExpanded = false }: { tutorialExpanded?: boo
             <button type="button" data-cy="code-copy" onClick={() => void copyCode()} className="border border-border px-2 py-1 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-ring text-foreground">Copiar</button>
             <button type="button" data-cy="code-download" onClick={downloadCode} className="border border-border px-2 py-1 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-ring text-foreground">Descargar</button>
           </div>
-          <p role="status" className="px-3 text-[11px] text-muted-foreground">{copyStatus}</p>
-          <p className="px-3 pb-1 text-[10px] text-muted-foreground" data-cy="code-source">
+          <p role="status" className="shrink-0 px-3 text-[11px] text-muted-foreground">{copyStatus}</p>
+          <p className="shrink-0 px-3 pb-1 text-[10px] text-muted-foreground" data-cy="code-source">
             {representation?.sourceUrl
               ? <a href={representation.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline focus-visible:outline-2 focus-visible:outline-ring">{representation.sourceLabel}</a>
               : representation?.sourceLabel ?? 'Pseudocódigo de VISTA'} · Solo lectura
           </p>
-          {activeLine === null && <p className="px-3 text-[11px] text-muted-foreground" data-cy="code-no-line">
+          {activeLine === null && <p className="shrink-0 px-3 text-[11px] text-muted-foreground" data-cy="code-no-line">
             {logicalLine === null ? 'Este paso es un resumen; no ejecuta una línea.' : 'Sin línea equivalente instrumentada en esta vista.'}
           </p>}
-          <ol ref={linesRef} tabIndex={0} translate="no" className="focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring relative max-h-[min(16rem,18vh)] overflow-auto overscroll-contain py-1.5 font-mono text-[12px]" aria-label={label} data-cy="code-lines">
+          <ol ref={linesRef} tabIndex={0} translate="no" className="focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring relative min-h-20 flex-1 overflow-auto overscroll-contain py-1.5 font-mono text-[12px]" aria-label={label} data-cy="code-lines">
             {code.map((text, i) => {
               const n = i + 1;
               const active = activeLines.includes(n);
@@ -152,6 +194,7 @@ export function CodePanel({ tutorialExpanded = false }: { tutorialExpanded?: boo
             })}
           </ol>
 
+          <div className="max-h-[40%] shrink-0 overflow-y-auto overscroll-contain">
           {/* HU-22b · CA-2: variables vigentes del paso */}
           {variables && (
             <section className="border-t border-border" data-cy="code-variables" aria-label="Variables">
@@ -231,6 +274,20 @@ export function CodePanel({ tutorialExpanded = false }: { tutorialExpanded?: boo
               )}
             </section>
           )}
+          </div>
+          </div>
+          <div className="flex h-8 shrink-0 items-center justify-between border-t border-border pl-3">
+            <span className="text-[11px] text-muted-foreground">Arrastra para mover</span>
+            <button type="button" data-cy="code-resize" aria-label="Redimensionar panel de código"
+              title="Arrastra para ajustar el tamaño o haz clic para ajustar" aria-describedby={instructionsId}
+              aria-expanded={adjustOpen} aria-controls={adjustmentId}
+              onPointerDown={event => pointerDown(event, 'resize')} onPointerMove={pointerMove} onPointerUp={pointerUp}
+              onPointerCancel={cancel} onLostPointerCapture={cancel} onKeyDown={event => keyboard(event, 'resize')}
+              onClick={event => { if (allowClick(event.detail)) setAdjustOpen(open => !open); }}
+              className="flex size-8 items-center justify-center cursor-nwse-resize touch-none text-primary-light hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-ring">
+              <MoveDiagonal2 aria-hidden="true" className="size-4" />
+            </button>
+          </div>
         </>
       )}
     </div>
