@@ -35,6 +35,7 @@ import { ApiError } from '@/lib/http';
 import { Modal } from '@/components/ui/modal';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { Alert } from '@/components/ui/alert';
+import { CourseManagementSection } from '@/components/CourseManagementSection';
 import type {
   UserDto,
   RoleDto,
@@ -42,6 +43,7 @@ import type {
   CreateUserRequest,
   CreateRoleRequest,
   CourseQuotaDto,
+  CourseDto,
   QuotaChangeDto,
 } from '@/types/auth';
 
@@ -725,7 +727,7 @@ function CoursesSection() {
             {courses.length} cursos
           </p>
           <p className="text-[12px] text-muted-foreground mt-1">
-            Cuota diaria de mensajes al asistente por curso. En blanco aplica la cuota por defecto.
+            Crea grupos, asigna docentes y matrícula estudiantes. También puedes ajustar su cuota diaria.
           </p>
         </div>
       </div>
@@ -733,6 +735,12 @@ function CoursesSection() {
       {error && (
         <Alert className="mb-3"><span data-cy="courses-error">{error}</span></Alert>
       )}
+
+      {!loading && <div className="mb-5"><CourseManagementSection courses={courses} onCourseCreated={async (created: CourseDto) => {
+        const refreshed = await fetchAdminCourses();
+        setCourses(refreshed);
+        setDrafts(d => ({ ...d, [created.code]: '' }));
+      }} /></div>}
 
       {loading ? (
         <p className="text-[13px] text-muted-foreground">Cargando…</p>

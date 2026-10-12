@@ -14,6 +14,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/core/**/*.ts', 'src/pages/AnalyticsPage.tsx', 'src/components/AnalyticsRanking.tsx',
+        'src/components/CourseManagementSection.tsx',
         'src/lib/analytics.ts', 'src/services/pedagogicalAnalyticsService.ts'],
       exclude: ['src/core/index.ts', 'src/core/__tests__/**'],
       reporter: ['text', 'text-summary'],
