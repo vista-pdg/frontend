@@ -897,6 +897,11 @@ export function AdminPage() {
 
           <div className="flex items-center gap-3">
             <Link
+              to="/analytics"
+              data-cy="admin-analytics"
+              className="inline-flex min-h-11 items-center text-[12px] text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >Analítica</Link>
+            <Link
               to="/"
               className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors duration-150"
             >

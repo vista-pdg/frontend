@@ -37,7 +37,7 @@ createRoot(document.getElementById('root')!).render(
             path="/analytics"
             element={
               <RequireAuth>
-                <RequireRole role="TEACHER">
+                <RequireRole role={['TEACHER', 'ADMIN']}>
                   <AnalyticsPage />
                 </RequireRole>
               </RequireAuth>

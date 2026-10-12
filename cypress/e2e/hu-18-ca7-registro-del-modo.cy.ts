@@ -1,5 +1,5 @@
 /// <reference types="cypress" />
-import { SEEDED } from '../support/commands';
+import { assertLegacyAnalyticsRetired } from '../support/hu21';
 import { loadAvlDemo } from '../support/hu18';
 
 /**
@@ -15,7 +15,7 @@ describe('HU-18 · CA-7 Registro del modo utilizado', () => {
     cy.registerStudentByApi('modo.ca7');
   });
 
-  it('cada ejecución viaja con la cabecera del modo activo y la analítica la desglosa', () => {
+  it('cada ejecución viaja con la cabecera del modo activo sin abrir lecturas individuales', () => {
     cy.intercept('POST', '/api/algorithm/steps').as('stepsReq');
     cy.visit('/');
     loadAvlDemo('10, 5, 3');
@@ -33,17 +33,7 @@ describe('HU-18 · CA-7 Registro del modo utilizado', () => {
     cy.get('[data-cy=chat-send]').click();
     cy.wait('@generate').its('request.headers').should('have.property', 'x-visualization-mode', '2D');
 
-    // Disponible para el análisis: el docente ve el desglose por modo.
-    cy.request('POST', '/api/auth/login', SEEDED.teacher).then(({ body }) => {
-      cy.request({
-        url: '/api/analytics/summary',
-        headers: { Authorization: `Bearer ${body.accessToken}` },
-      }).then((res) => {
-        expect(res.status).to.eq(200);
-        expect(res.body.eventsByVisualizationMode['3D']).to.be.at.least(1);
-        expect(res.body.eventsByVisualizationMode['2D']).to.be.at.least(2);
-        expect(res.body.totalAlgorithmRuns).to.be.at.least(2);
-      });
-    });
+    // La persistencia del modo se verifica en VisualizationModeTelemetryTest.
+    assertLegacyAnalyticsRetired('summary');
   });
 });

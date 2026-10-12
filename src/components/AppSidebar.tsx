@@ -332,7 +332,7 @@ export function AppSidebar({ tutorialStep = null, onTutorial }: AppSidebarProps)
           >
             {collapsed ? (
               <>
-                {isTeacher && (
+                {(isTeacher || isAdmin) && (
                   <Link
                     to="/analytics"
                     data-cy="sidebar-analytics"
@@ -369,7 +369,7 @@ export function AppSidebar({ tutorialStep = null, onTutorial }: AppSidebarProps)
                   <p className="text-[9px] text-muted-foreground truncate">{user.email}</p>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
-                  {isTeacher && (
+                  {(isTeacher || isAdmin) && (
                     <Link
                       to="/analytics"
                       data-cy="sidebar-analytics"

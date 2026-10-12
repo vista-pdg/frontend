@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { generateGraphWithQuota } from '@/services/graphService';
 import { algorithmKey, fetchCatalog, runAlgorithm } from '@/services/algorithmService';
 import { clearSession, fetchQuota, fetchSessionStatus } from '@/services/assistantService';
-import { reportAlgorithmCompleted } from '@/services/analyticsService';
+import { reportAlgorithmCompleted, reportAlgorithmProgress } from '@/services/analyticsService';
 import { ApiError } from '@/lib/http';
 import type { QuotaStatus, SessionStatus } from '@/types/auth';
 import type { CodeRepresentation, Node3D, Edge3D, GraphMeta, AlgorithmStep, AlgorithmDescriptor, HighlightType } from '@/types/graph';
@@ -109,6 +109,8 @@ interface GraphState extends VisualizationMirror {
   catalogError: string | null;
   /** Rastro ya reportado como completado; evita repetir el evento al ir y volver del final. */
   reportedTrace: string | null;
+  activeExecutionId: string | null;
+  reportedProgress: number;
   /** Entrada del catálogo elegida en el panel; deriva de algorithmType/Subtype/Operation. */
   selectedAlgorithm: AlgorithmDescriptor | null;
 
@@ -171,6 +173,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   catalogLoading: false,
   catalogError: null,
   reportedTrace: null,
+  activeExecutionId: null,
+  reportedProgress: 0,
   selectedAlgorithm: null,
 
   sendPrompt: async (prompt: string) => {
@@ -290,6 +294,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     // borrado falla en silencio: la sesión que no existe no hay que borrarla.
     void clearSession().catch(() => undefined);
     set({
+      activeExecutionId: null, reportedProgress: 0, reportedTrace: null,
       contextRevision: get().contextRevision + 1,
       canvasContext: null,
       loading: false, stepsLoading: false, selectedAlgorithm: null,
@@ -311,6 +316,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     // Keep the loaded structure visible, but detach the old execution from a new context.
     if (state.steps.length) engine.loadStructure(state.nodes, state.edges, state.meta);
     set({ activeStructureType: type, activeSubtype: subtype,
+      activeExecutionId: null, reportedProgress: 0, reportedTrace: null,
       contextRevision: state.contextRevision + 1, loading: false, stepsLoading: false,
       selectedAlgorithm: compatible ? selected : null,
       algorithmType: compatible ? selected.type : null,
@@ -406,6 +412,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     }
     if (get().steps.length) engine.loadStructure(get().nodes, get().edges, get().meta);
     set({ selectedAlgorithm: descriptor, algorithmType: descriptor?.type ?? null,
+      activeExecutionId: null, reportedProgress: 0, reportedTrace: null,
       algorithmSubtype: descriptor?.subtype ?? null, algorithmOperation: descriptor?.operation ?? null,
       contextRevision: get().contextRevision + 1, loading: false, stepsLoading: false });
   },
@@ -436,7 +443,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         throw new Error(res.message ?? 'Error al cargar pasos');
       }
       engine.loadTrace(res.steps, res.code ?? null, res.representations ?? []);
-      set({ stepsLoading: false, reportedTrace: null, canvasContext: { type: d.type, subtype: d.subtype } });
+      set({ stepsLoading: false, reportedTrace: null, activeExecutionId: res.executionId ?? null,
+        reportedProgress: 0, canvasContext: { type: d.type, subtype: d.subtype } });
+      get().reportCompletionIfFinished();
     } catch (err: unknown) {
       if (revision !== get().contextRevision) return;
       set({ stepsLoading: false });
@@ -464,6 +473,15 @@ export const useGraphStore = create<GraphState>((set, get) => ({
    */
   reportCompletionIfFinished: () => {
     const { steps, currentStepIndex, selectedAlgorithm, meta } = get();
+    const { activeExecutionId, reportedProgress } = get();
+    if (activeExecutionId && steps.length > 0) {
+      const visited = currentStepIndex + 1;
+      if (visited > reportedProgress) {
+        set({ reportedProgress: visited });
+        void reportAlgorithmProgress(activeExecutionId, visited);
+      }
+      return;
+    }
     if (steps.length === 0 || currentStepIndex !== steps.length - 1) return;
 
     // El modo de visualización queda fuera de la clave a propósito: conmutar 2D/3D en el último

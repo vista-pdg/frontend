@@ -20,10 +20,11 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** Restringe una ruta a un rol, redirigiendo a la que sí le corresponde en lugar de a un 403. */
-export function RequireRole({ role, children }: { role: Role; children: ReactNode }) {
+/** Restringe una ruta a cualquiera de los roles admitidos; la API autoriza cada petición. */
+export function RequireRole({ role, children }: { role: Role | readonly Role[]; children: ReactNode }) {
   const { hasRole, homeRoute } = useAuth();
-  if (!hasRole(role)) return <Navigate to={homeRoute} replace />;
+  const permitted = typeof role === 'string' ? hasRole(role) : role.some(hasRole);
+  if (!permitted) return <Navigate to={homeRoute} replace />;
   return <>{children}</>;
 }
 

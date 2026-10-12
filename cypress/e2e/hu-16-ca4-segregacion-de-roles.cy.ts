@@ -42,16 +42,15 @@ describe('HU-16 · CA-4 Segregacion de roles en el panel analitico', () => {
     cy.get('[data-cy=analytics-page]').should('not.exist');
   });
 
-  it('el docente si recibe los agregados, y sin datos de personas', () => {
+  it('el docente puede consultar sus cursos autorizados', () => {
     cy.request('POST', '/api/auth/login', {
       email: SEEDED.teacher.email,
       password: SEEDED.teacher.password,
     }).then(({ body }) => {
-      cy.request({ url: SUMMARY, headers: { Authorization: `Bearer ${body.accessToken}` } }).then(
+      cy.request({ url: '/api/analytics/courses', headers: { Authorization: `Bearer ${body.accessToken}` } }).then(
         (res) => {
           expect(res.status).to.eq(200);
-          expect(res.body.totalGenerations).to.be.a('number');
-          expect(res.body.generationsByCourse).to.be.an('object');
+          expect(res.body).to.be.an('array');
           const raw = JSON.stringify(res.body);
           expect(raw).to.not.contain('@');
           expect(raw).to.not.contain('pseudonym');
@@ -60,18 +59,18 @@ describe('HU-16 · CA-4 Segregacion de roles en el panel analitico', () => {
     });
   });
 
-  it('el administrador tambien recibe 403: la analitica es solo del docente', () => {
+  it('HU-06 permite al administrador consultar los cursos', () => {
     cy.request('POST', '/api/auth/login', {
       email: SEEDED.admin.email,
       password: SEEDED.admin.password,
     }).then(({ body }) => {
       cy.request({
-        url: SUMMARY,
+        url: '/api/analytics/courses',
         headers: { Authorization: `Bearer ${body.accessToken}` },
         failOnStatusCode: false,
       })
         .its('status')
-        .should('eq', 403);
+        .should('eq', 200);
     });
   });
 

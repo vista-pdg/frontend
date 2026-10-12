@@ -2,13 +2,13 @@
 import { SEEDED } from '../support/commands';
 
 /**
- * CA-3 — «Redireccion a panel analitico unicamente para usuarios con rol docente».
+ * HU-08 CA-3, actualizado por HU-06: el docente aterriza en analítica al ingresar;
+ * ADMIN también puede consultar el tablero, mientras STUDENT queda excluido.
  *
- * <p>El criterio tiene dos mitades y ambas hay que demostrarlas: que el docente llegue, y que
- * nadie mas lo haga. Una prueba que solo compruebe lo primero dejaria pasar un guard que abre la
- * ruta a todo el mundo.
+ * Se conserva la redirección inicial del administrador al lienzo y se prueba su acceso
+ * explícito al panel, además de las denegaciones al estudiante y al visitante sin sesión.
  */
-describe('CA-3 · Redireccion al panel analitico solo para el docente', () => {
+describe('CA-3 · Redireccion docente y acceso analítico actualizado por HU-06', () => {
   beforeEach(() => {
     cy.clearLocalStorage();
   });
@@ -35,7 +35,7 @@ describe('CA-3 · Redireccion al panel analitico solo para el docente', () => {
     cy.get('[data-cy=analytics-page]').should('not.exist');
   });
 
-  it('el administrador tampoco entra al panel del docente: el rol es TEACHER, no «cualquier rol elevado»', () => {
+  it('el administrador inicia en el lienzo y puede consultar el panel según HU-06', () => {
     cy.visit('/login');
     cy.get('[data-cy=input-email]').type(SEEDED.admin.email);
     cy.get('[data-cy=input-password]').type(SEEDED.admin.password);
@@ -43,8 +43,8 @@ describe('CA-3 · Redireccion al panel analitico solo para el docente', () => {
     cy.location('pathname').should('eq', '/');
 
     cy.visit('/analytics');
-    cy.location('pathname').should('eq', '/');
-    cy.get('[data-cy=analytics-page]').should('not.exist');
+    cy.location('pathname').should('eq', '/analytics');
+    cy.get('[data-cy=analytics-page]').should('be.visible');
   });
 
   it('un estudiante que escribe la URL a mano es devuelto al lienzo', () => {
@@ -86,10 +86,19 @@ describe('CA-3 · Redireccion al panel analitico solo para el docente', () => {
     cy.get('[data-cy=sidebar-analytics]').should('not.exist');
   });
 
-  it('el panel declara que su contenido llega despues, en vez de fingir metricas', () => {
+  it('el panel presenta los cursos autorizados o el estado sin asignaciones', () => {
     cy.loginByApi(SEEDED.teacher.email, SEEDED.teacher.password);
+    cy.intercept('GET', '/api/analytics/courses').as('authorizedCourses');
     cy.visit('/analytics');
-
-    cy.get('[data-cy=analytics-page]').should('contain', 'historia posterior');
+    cy.wait('@authorizedCourses').then(({ response }) => {
+      expect(response?.statusCode).to.eq(200);
+      if (response!.body.length === 0) {
+        cy.get('[data-cy=analytics-no-courses]').should('be.visible');
+      } else {
+        cy.get('[data-cy=analytics-course] option').should('have.length', response!.body.length);
+        cy.get('[data-cy=analytics-apply]').should('be.visible');
+      }
+    });
+    cy.get('[data-cy=analytics-page]').should('not.contain', 'historia posterior');
   });
 });
