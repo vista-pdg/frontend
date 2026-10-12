@@ -95,6 +95,8 @@ export interface CodeRepresentation {
 }
 
 export interface StepsResponse {
+  /** Correlación opaca de telemetría, obtenida de la cabecera del servidor. */
+  executionId?: string | null;
   error: boolean;
   message: string | null;
   steps: AlgorithmStep[] | null;

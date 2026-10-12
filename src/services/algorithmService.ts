@@ -24,6 +24,7 @@ export async function fetchCatalog(): Promise<AlgorithmDescriptor[]> {
 }
 
 export async function runAlgorithm(req: AlgorithmRunRequest): Promise<StepsResponse> {
-  const { data } = await http.post<StepsResponse>('/algorithm/steps', req);
-  return data;
+  const { data, headers } = await http.post<StepsResponse>('/algorithm/steps', req);
+  const executionId = headers['x-analytics-execution'];
+  return { ...data, executionId: typeof executionId === 'string' ? executionId : null };
 }

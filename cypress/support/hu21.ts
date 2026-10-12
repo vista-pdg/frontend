@@ -1,58 +1,17 @@
 /// <reference types="cypress" />
 import { SEEDED } from './commands';
 
-/**
- * Utilidades de la HU-21 (registro analítico).
- *
- * <p>Los eventos no se ven en la pantalla del estudiante: eso es justo el punto de la historia. Lo
- * observable desde fuera es lo que el docente puede leer, así que los specs comprueban el registro
- * por la API del docente, con su propia sesión, y no espiando el estado del navegador.
- */
-
-export interface AnalyticsEvent {
-  structureType: string;
-  algorithm: string | null;
-  source: string;
-  outcome: string;
-  stepCount: number | null;
-  visualizationMode: string | null;
-  sessionId: string | null;
-  promptText: string | null;
-  at: string;
-}
-
-export interface RetrySequence {
-  sessionId: string;
-  structureType: string;
-  attempts: number;
-  firstAt: string;
-  lastAt: string;
-}
-
-function asTeacher<T>(url: string): Cypress.Chainable<T> {
-  return cy
-    .request('POST', '/api/auth/login', {
-      email: SEEDED.teacher.email,
-      password: SEEDED.teacher.password,
+/** HU-06 retira las lecturas individuales. La persistencia se verifica con Postgres en backend. */
+export function assertLegacyAnalyticsRetired(path: 'events' | 'retries' | 'summary') {
+  return cy.request('POST', '/api/auth/login', SEEDED.teacher).then(({ body }) =>
+    cy.request({ url: `/api/analytics/${path}`, failOnStatusCode: false,
+      headers: { Authorization: `Bearer ${body.accessToken}` } }).then((response) => {
+      expect(response.status).to.eq(410);
+      expect(response.body.code).to.eq('ANALYTICS_ENDPOINT_RETIRED');
+      const raw = JSON.stringify(response.body);
+      for (const field of ['pseudonym', 'sessionId', 'promptText', 'distinctUsers', '@u.icesi.edu.co'])
+        expect(raw).not.to.contain(field);
     })
-    .then(({ body }) =>
-      cy.request({ url, headers: { Authorization: `Bearer ${body.accessToken}` } }).its('body')
-    );
-}
-
-/** Los últimos eventos que ve el docente, del más reciente al más antiguo. */
-export function teacherEvents(outcome?: string, limit = 50): Cypress.Chainable<AnalyticsEvent[]> {
-  const query = outcome ? `?outcome=${outcome}&limit=${limit}` : `?limit=${limit}`;
-  return asTeacher<AnalyticsEvent[]>(`/api/analytics/events${query}`);
-}
-
-/** Las secuencias de reintento que el docente puede revisar. */
-export function teacherRetries(
-  minAttempts = 3,
-  windowSeconds = 120
-): Cypress.Chainable<RetrySequence[]> {
-  return asTeacher<RetrySequence[]>(
-    `/api/analytics/retries?minAttempts=${minAttempts}&windowSeconds=${windowSeconds}`
   );
 }
 

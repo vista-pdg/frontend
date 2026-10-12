@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 /**
  * Pruebas unitarias del frontend (desde HU-18). El núcleo de visualización (`src/core`) es
  * TypeScript puro y se prueba en Node, sin adaptadores de renderizado registrados: es la
- * condición que CA-4 de la HU-18 impone. La cobertura se mide y se exige sólo sobre ese paquete.
+ * condición que CA-4 de la HU-18 impone. HU-06 incorpora también sus módulos críticos de analítica.
  */
 export default defineConfig({
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
@@ -13,7 +13,8 @@ export default defineConfig({
     environment: 'node',
     coverage: {
       provider: 'v8',
-      include: ['src/core/**/*.ts'],
+      include: ['src/core/**/*.ts', 'src/pages/AnalyticsPage.tsx', 'src/components/AnalyticsRanking.tsx',
+        'src/lib/analytics.ts', 'src/services/pedagogicalAnalyticsService.ts'],
       exclude: ['src/core/index.ts', 'src/core/__tests__/**'],
       reporter: ['text', 'text-summary'],
       thresholds: { lines: 80, statements: 80, functions: 80, branches: 75 },

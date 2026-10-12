@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AlgorithmDescriptor, StructureResponse } from '@/types/graph';
+import type { AlgorithmDescriptor, AlgorithmStep, StructureResponse } from '@/types/graph';
 
 vi.mock('@/renderers/appEngine', async () => {
   const { VisualizationEngine } = await import('@/core');
@@ -9,11 +9,12 @@ vi.mock('@/renderers/appEngine', async () => {
 vi.mock('@/services/graphService', () => ({ generateGraphWithQuota: vi.fn() }));
 vi.mock('@/services/algorithmService', () => ({ algorithmKey: (d: AlgorithmDescriptor) => `${d.type}/${d.subtype}/${d.operation}`, fetchCatalog: vi.fn(), runAlgorithm: vi.fn() }));
 vi.mock('@/services/assistantService', () => ({ clearSession: vi.fn().mockResolvedValue(undefined), fetchQuota: vi.fn(), fetchSessionStatus: vi.fn().mockResolvedValue({ active: false, available: true }) }));
-vi.mock('@/services/analyticsService', () => ({ reportAlgorithmCompleted: vi.fn() }));
+vi.mock('@/services/analyticsService', () => ({ reportAlgorithmCompleted: vi.fn(), reportAlgorithmProgress: vi.fn() }));
 import { useGraphStore } from './graphStore';
 import { generateGraphWithQuota } from '@/services/graphService';
 import { runAlgorithm } from '@/services/algorithmService';
 import { engine } from '@/renderers/appEngine';
+import { reportAlgorithmProgress } from '@/services/analyticsService';
 
 const avl: AlgorithmDescriptor = { type: 'tree', subtype: 'avl', operation: 'insert', family: 'tree', label: 'AVL', description: '', input: 'values' };
 const pop: AlgorithmDescriptor = { ...avl, type: 'stack', subtype: 'simple', operation: 'pop', family: 'stack' };
@@ -69,4 +70,50 @@ it('sends a scalar and the real canvas to a list operation after sorting', async
   vi.mocked(runAlgorithm).mockResolvedValue({ error: false, message: null, steps: [] });
   await useGraphStore.getState().runSelectedAlgorithm({ argument: 7 });
   expect(runAlgorithm).toHaveBeenCalledWith(expect.objectContaining({ argument: 7, nodes: [node], edges: [], type: 'linked-list' }));
+});
+
+describe('HU-06 correlated algorithm progress', () => {
+  beforeEach(() => { useGraphStore.getState().clearAll(); vi.clearAllMocks(); });
+
+  async function run(executionId: string) {
+    useGraphStore.getState().selectAlgorithm(avl);
+    const steps: AlgorithmStep[] = Array.from({ length: 3 }, (_, index) => ({
+      index, title: `Paso ${index + 1}`, nodes: [], edges: [], description: `Paso ${index + 1}`,
+      highlightedNodeIds: [], highlightType: 'visit', rotationType: null,
+    }));
+    vi.mocked(runAlgorithm).mockResolvedValue({ error: false, message: null, executionId, steps });
+    await useGraphStore.getState().runSelectedAlgorithm({ values: [3, 2, 1] });
+  }
+
+  it('reports partial progress, keeps a high-water mark and does not count replays', async () => {
+    await run('first-execution');
+    expect(reportAlgorithmProgress).toHaveBeenLastCalledWith('first-execution', 1);
+    useGraphStore.getState().nextStep();
+    expect(reportAlgorithmProgress).toHaveBeenLastCalledWith('first-execution', 2);
+    useGraphStore.getState().prevStep();
+    useGraphStore.getState().nextStep();
+    expect(reportAlgorithmProgress).toHaveBeenCalledTimes(2);
+    useGraphStore.getState().nextStep();
+    useGraphStore.getState().setCurrentStep(2);
+    expect(reportAlgorithmProgress).toHaveBeenCalledTimes(3);
+    expect(reportAlgorithmProgress).toHaveBeenLastCalledWith('first-execution', 3);
+  });
+
+  it('distinguishes two executions of the same algorithm and trace length', async () => {
+    await run('first-execution');
+    useGraphStore.getState().setCurrentStep(2);
+    await run('second-execution');
+    expect(reportAlgorithmProgress).toHaveBeenLastCalledWith('second-execution', 1);
+    useGraphStore.getState().setCurrentStep(2);
+    expect(reportAlgorithmProgress).toHaveBeenLastCalledWith('second-execution', 3);
+  });
+
+  it('detaches telemetry when the context or canvas is cleared', async () => {
+    await run('first-execution');
+    useGraphStore.getState().setActiveStructureType('stack');
+    expect(useGraphStore.getState().activeExecutionId).toBeNull();
+    useGraphStore.getState().clearAll();
+    useGraphStore.getState().nextStep();
+    expect(reportAlgorithmProgress).toHaveBeenCalledTimes(1);
+  });
 });
