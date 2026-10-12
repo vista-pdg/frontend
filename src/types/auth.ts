@@ -41,6 +41,30 @@ export interface CourseQuotaDto {
   effectiveDailyQuota: number;
 }
 
+export interface AcademicTermDto {
+  code: string;
+  active: boolean;
+}
+
+export interface StudentEnrollmentDto {
+  id: number;
+  displayName: string;
+  email: string;
+  courseCode: string | null;
+}
+
+export interface AssignedTeacherDto {
+  id: number;
+  displayName: string;
+  email: string;
+}
+
+export interface CreateCourseRequest {
+  code: string;
+  name: string;
+  termCode: string;
+}
+
 export interface QuotaChangeDto {
   courseCode: string;
   previousQuota: number | null;
