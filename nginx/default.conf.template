@@ -9,6 +9,18 @@ limit_req_zone $binary_remote_addr zone=api:10m rate=20r/s;
 limit_req_zone $binary_remote_addr zone=auth:10m rate=2r/s;
 limit_req_status 429;
 
+# Firebase Hosting forwards only __session. Bridge the backend Cloud Run affinity cookie
+# so per-instance Redis conversation memory survives the Hosting rewrite. JWT stays in
+# Authorization; no authentication token is stored in this cookie.
+map $cookie___session $backend_cookies {
+    ""      $http_cookie;
+    default "$http_cookie; GCLB=$cookie___session";
+}
+map $upstream_http_set_cookie $hosting_affinity_cookie {
+    default "";
+    "~^GCLB=([^;]+)" "__session=$1; Path=/; Secure; HttpOnly; SameSite=Lax";
+}
+
 server {
     listen 8080;
     server_name _;
@@ -39,14 +51,18 @@ server {
     proxy_ssl_server_name on;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto https;
-    proxy_read_timeout 120s;
+    proxy_read_timeout 58s;
+    proxy_set_header Cookie $backend_cookies;
+    add_header Set-Cookie $hosting_affinity_cookie always;
 
     location /api/auth/ {
+        add_header Cache-Control "no-store" always;
         limit_req zone=auth burst=60 nodelay;
         proxy_pass $backend;
     }
 
     location /api/ {
+        add_header Cache-Control "no-store" always;
         limit_req zone=api burst=200 nodelay;
         proxy_pass $backend;
     }

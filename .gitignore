@@ -27,3 +27,7 @@ dist-ssr
 cypress/videos
 cypress/screenshots
 cypress/downloads
+
+# Firebase CLI local cache and diagnostic logs
+.firebase/
+firebase-debug*.log
