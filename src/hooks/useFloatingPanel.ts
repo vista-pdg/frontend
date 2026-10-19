@@ -26,15 +26,21 @@ export function useFloatingPanel(enabled: boolean, collapsed: boolean) {
     const parent = panelRef.current?.parentElement;
     if (!enabled || !parent) return;
     let frame = 0;
+    const toolbar = parent.querySelector<HTMLElement>('[data-cy=canvas-context-controls]');
     function measure() {
       const compact = window.matchMedia('(max-width: 639px)').matches;
       const bounds = panelBounds(parent!.clientWidth, parent!.clientHeight, compact);
+      if (toolbar) {
+        bounds.top = Math.max(bounds.top, Math.min(toolbar.offsetTop + toolbar.offsetHeight + 12, bounds.bottom - 112));
+        bounds.minHeight = Math.min(bounds.minHeight, bounds.bottom - bounds.top);
+      }
       boundsRef.current = bounds;
       commit(fitPanel(rectRef.current ?? defaultPanel(bounds, compact, collapsed), bounds, collapsed));
     }
     function schedule() { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); }
     const observer = new ResizeObserver(schedule);
     observer.observe(parent);
+    if (toolbar) observer.observe(toolbar);
     window.addEventListener('resize', schedule);
     schedule();
     return () => { cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', schedule); };

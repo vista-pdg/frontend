@@ -3,6 +3,7 @@ import {
   RotateCcw,
   Play,
   Pause,
+  Code2,
   Trash2,
   ChevronLeft,
   ChevronRight,
@@ -57,6 +58,7 @@ export function CanvasOverlay({ tutorialStep = null }: { tutorialStep?: number |
   const highlightType = useGraphStore((s) => s.highlightType);
 
   const [isPlaying, setIsPlaying] = useState(false);
+  const [codeVisible, setCodeVisible] = useState(true);
 
   const inAlgorithmMode = steps.length > 0;
   const currentStep = inAlgorithmMode ? steps[currentStepIndex] : null;
@@ -102,7 +104,7 @@ export function CanvasOverlay({ tutorialStep = null }: { tutorialStep?: number |
     <div className="absolute inset-0 pointer-events-none z-10">
 
       {/* Top-left: structure badge or step info */}
-      <div className="absolute top-4 max-sm:top-16 left-4 right-44 max-sm:right-4 pointer-events-auto flex flex-col items-start gap-2">
+      <div data-cy="canvas-context-controls" className="absolute top-4 max-sm:top-16 left-4 right-44 max-sm:right-4 pointer-events-auto flex flex-col items-start gap-2">
         <WorkContext />
         <div className="flex items-center gap-2 flex-wrap">
         {inAlgorithmMode && currentStep ? (
@@ -141,6 +143,14 @@ export function CanvasOverlay({ tutorialStep = null }: { tutorialStep?: number |
           >
             <Trash2 className="size-3.5" />
             <span className="text-[11px]">Limpiar</span>
+          </button>
+        )}
+        {inAlgorithmMode && hasCode && (
+          <button type="button" data-cy="code-visibility-toggle" aria-controls="algorithm-code-panel"
+            aria-pressed={codeVisible} onClick={() => setCodeVisible(visible => !visible)}
+            title={codeVisible ? 'Ocultar código' : 'Mostrar código'}
+            className={cn('flex items-center gap-1.5 bg-shell/85 border px-2.5 py-2 text-[11px] backdrop-blur-md transition-colors hover:border-primary/50 focus-visible:outline-2 focus-visible:outline-ring', codeVisible ? 'border-primary/40 text-primary-light' : 'border-border text-muted-foreground')}>
+            <Code2 className="size-3.5" aria-hidden="true" />Código
           </button>
         )}
         </div>
@@ -311,9 +321,9 @@ export function CanvasOverlay({ tutorialStep = null }: { tutorialStep?: number |
       )}
 
       {/* HU-22a: panel de código sincronizado con el paso actual */}
-      {inAlgorithmMode && <CodePanel tutorialExpanded={tutorialStep === 3} />}
+      {inAlgorithmMode && <CodePanel tutorialExpanded={tutorialStep === 4} hidden={!codeVisible && tutorialStep !== 4} />}
 
-      {tutorialStep === 3 && (!inAlgorithmMode || !hasCode) && (
+      {tutorialStep === 4 && (!inAlgorithmMode || !hasCode) && (
         <div data-cy="tutorial-demo-area" className="absolute top-28 max-sm:top-24 bottom-4 left-4 w-[560px] max-w-[calc(100%_-_2rem)]" />
       )}
 

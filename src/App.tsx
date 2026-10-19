@@ -41,14 +41,14 @@ export default function App() {
             <VisualizationCanvas />
             <CanvasOverlay tutorialStep={tutorialStep} />
           </div>
-          <ActivitySelector chatOpen={tutorialOpen ? tutorialStep === 1 : chatOpen} algorithmOpen={tutorialOpen ? tutorialStep === 2 : algorithmOpen} onToggleChat={toggleChat} onToggleAlgorithm={toggleAlgorithm} />
+          <ActivitySelector chatOpen={tutorialOpen ? tutorialStep === 2 : chatOpen} algorithmOpen={tutorialOpen ? tutorialStep === 3 : algorithmOpen} onToggleChat={toggleChat} onToggleAlgorithm={toggleAlgorithm} />
         </div>
         <ChatPanel
-          open={tutorialOpen ? tutorialStep === 1 : chatOpen}
+          open={tutorialOpen ? tutorialStep === 2 : chatOpen}
           onClose={() => setChatOpen(false)}
         />
         <AlgorithmPanel
-          open={tutorialOpen ? tutorialStep === 2 : algorithmOpen}
+          open={tutorialOpen ? tutorialStep === 3 : algorithmOpen}
           onClose={() => setAlgorithmOpen(false)}
         />
       </div>

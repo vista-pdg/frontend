@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useGraphStore } from '@/store/graphStore';
 import { algorithmKey } from '@/services/algorithmService';
-import { structureFitsFamily } from '@/core';
+import { algorithmFitsCanvas, canvasParameter } from '@/lib/algorithmCanvas';
 import type { AlgorithmDescriptor } from '@/types/graph';
 import { X, FlaskConical, ChevronLeft, ChevronRight, Loader2, AlertCircle, Play } from 'lucide-react';
 
@@ -87,6 +87,8 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   const prevStep = useGraphStore((s) => s.prevStep);
   const nodes = useGraphStore((s) => s.nodes);
   const meta = useGraphStore((s) => s.meta);
+  const canvasContext = useGraphStore((s) => s.canvasContext);
+  const [sources, setSources] = useState<Record<string, 'canvas' | 'values'>>({});
 
   // Valores por algoritmo (se conservan al cambiar de uno a otro) y nodo inicial elegido.
   const [valuesByKey, setValuesByKey] = useState<Record<string, string>>({});
@@ -111,7 +113,6 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   };
   const argumentInput = selectedKey ? (argumentsByKey[selectedKey] ?? '') : '';
   const maxValues = selected?.maxValues ?? (selected?.family === 'sorting' ? 32 : 64);
-  const parameterLabel = selected?.parameter === 'target' ? 'Valor a buscar' : 'Valor a insertar';
   const choose = (d: AlgorithmDescriptor | null) => {
     pendingRef.current = null;
     setInvalidField(null);
@@ -131,20 +132,17 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
     return groups;
   }, [catalog, activeType, activeSubtype]);
 
-  // Los algoritmos de entrada `structure` recorren lo que hay en el lienzo (BFS, inorden). Si el
-  // lienzo está vacío y el algoritmo sabe construir su estructura con valores (inorden → BST), se
-  // ofrece el formulario de valores; si no (BFS), se pide generar primero.
   const needsStructure = selected?.input === 'structure';
   const edges = useGraphStore((s) => s.edges);
-  const canvasFits = needsStructure && selected !== null && structureFitsFamily(selected.family, { nodes, edges });
+  const canvasFits = selected !== null && algorithmFitsCanvas(selected, { nodes, edges }, canvasContext ?? meta);
   const canvasNodes = canvasFits ? nodes : [];
-  const canFallbackToValues = needsStructure && selectedKey !== null && DEFAULT_VALUES[selectedKey] !== undefined;
-  const usesValues = selected?.input === 'values' || (needsStructure && canvasNodes.length === 0 && canFallbackToValues);
+  const canCreate = selected?.input === 'values' || (selectedKey !== null && DEFAULT_VALUES[selectedKey] !== undefined);
+  const usesValues = canCreate && (!canvasFits || (selectedKey !== null && sources[selectedKey] === 'values'));
+  const parameter = selected ? (usesValues ? selected.parameter : canvasParameter(selected)) : null;
+  const parameterLabel = parameter === 'target' ? 'Valor a buscar' : 'Valor a insertar';
   const isGraphLike = needsStructure && selected?.type === 'graph';
   const usesStart = isGraphLike && !['floyd', 'kruskal'].includes(selected?.operation ?? '');
-  // Si el nodo elegido ya no está (otro grafo), se recurre al primero: derivado, no sincronizado.
   const start = canvasNodes.some((n) => n.id === chosenStart) ? chosenStart : (canvasNodes[0]?.id ?? '');
-  void meta;
 
   const currentStep = steps[currentStepIndex] ?? null;
   const hlConfig = currentStep ? HIGHLIGHT_CONFIG[currentStep.highlightType] : null;
@@ -163,7 +161,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
     setInvalidField(null);
     try {
       let argument: number | undefined;
-      if (selected.parameter) {
+      if (parameter) {
         const parsed = parseAlgorithmInteger(argumentInput);
         if (parsed === null) {
           fieldError('argument', 'Ingresa un entero entre −2147483648 y 2147483647.');
@@ -177,13 +175,13 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
           fieldError('values', `Ingresa de 1 a ${maxValues} enteros de 32 bits separados por comas.`);
           return;
         }
-        await runSelectedAlgorithm({ values, argument });
+        await runSelectedAlgorithm({ values, argument, source: 'values' });
       } else {
         if (canvasNodes.length === 0) {
           setError('Genera una estructura desde el chat antes de ejecutar el algoritmo.');
           return;
         }
-        await runSelectedAlgorithm({ start: usesStart ? start : undefined, argument });
+        await runSelectedAlgorithm({ start: usesStart ? start : undefined, argument, source: 'canvas' });
       }
     } catch (e: unknown) {
       if (pendingRef.current !== token) return;
@@ -198,7 +196,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   const highlightLabel = (label: string) => label === 'ROTACIÓN' && ['sorting', 'heap', 'linked-list'].includes(selected?.family ?? '') ? 'INTERCAMBIO' : label;
 
   const runDisabled =
-    stepsLoading || !selected || (usesValues ? !valuesInput.trim() : canvasNodes.length === 0) || (!!selected.parameter && !argumentInput.trim());
+    stepsLoading || !selected || (usesValues ? !valuesInput.trim() : canvasNodes.length === 0) || (!!parameter && !argumentInput.trim());
 
   return (
     <div
@@ -280,10 +278,21 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
           {/* Formulario según la entrada del algoritmo */}
           {selected && (
             <form className="flex flex-col gap-2 border-t border-border pt-3" data-cy="algo-form" aria-busy={stepsLoading} onSubmit={(event) => { event.preventDefault(); void handleRun(); }}>
+              {canCreate && <fieldset disabled={stepsLoading} className="flex flex-col gap-2" data-cy="algo-source">
+                <legend className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Origen de la estructura</legend>
+                <div className="flex gap-2">
+                  {(['canvas', 'values'] as const).map(source => <label key={source} className={cn('flex flex-1 items-center gap-2 border px-2 py-2 text-[11px]', source === 'canvas' && !canvasFits ? 'border-border text-muted-foreground opacity-60' : 'border-primary/30 text-foreground')}>
+                    <input type="radio" name="algorithm-source" data-cy={`algo-source-${source}`} checked={source === 'values' ? usesValues : !usesValues && canvasFits}
+                      disabled={source === 'canvas' && !canvasFits} onChange={() => { if (selectedKey) setSources(current => ({ ...current, [selectedKey]: source })); setError(null); setInvalidField(null); }} />
+                    {source === 'canvas' ? 'Usar lienzo' : 'Crear con valores'}
+                  </label>)}
+                </div>
+                {!canvasFits && <p className="text-[11px] text-muted-foreground">El lienzo está vacío o no corresponde al tipo de este algoritmo.</p>}
+              </fieldset>}
               {usesValues ? (
                 <>
                   <label htmlFor="algo-values" className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
-                    {needsStructure ? 'Valores (el lienzo está vacío: se construye un BST)' : 'Valores'}
+                    Valores para la nueva estructura
                   </label>
                   <input
                     id="algo-values"
@@ -301,7 +310,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                     placeholder="Ej: 10, 5, 3, 7, 8…"
                     className="w-full bg-card/60 border border-primary/30 text-foreground placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150"
                   />
-                  <p id="algo-input-help" className="text-[11px] text-muted-foreground">Hasta {maxValues} enteros{selected.family === 'sorting' ? ' · menor a mayor' : ''}.</p>
+                  <p id="algo-input-help" className="text-[11px] text-muted-foreground">Se creará una estructura nueva al ejecutar. Hasta {maxValues} enteros{selected.family === 'sorting' ? ' · menor a mayor' : ''}.</p>
                 </>
               ) : !isGraphLike || (!usesStart && canvasNodes.length > 0) ? (
                 <p className="text-[11px] text-muted-foreground leading-relaxed" data-cy="algo-uses-canvas">
@@ -336,7 +345,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                   )}
                 </>
               )}
-              {selected.parameter && (
+              {parameter && (
                 <>
                   <label htmlFor="algo-argument" className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">{parameterLabel}</label>
                   <input id="algo-argument" name="argument" ref={argumentRef} type="text" inputMode="text" autoComplete="off" spellCheck={false}
@@ -345,7 +354,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                     aria-invalid={invalidField === 'argument'} aria-describedby={invalidField === 'argument' ? 'algo-argument-help algo-error' : 'algo-argument-help'}
                     placeholder="Ej: 7…" data-cy="algo-argument"
                     className="w-full bg-card/60 border border-primary/30 text-foreground placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150" />
-                  <p id="algo-argument-help" className="text-[11px] text-muted-foreground">Entero de 32 bits; se conserva la estructura del lienzo.</p>
+                  <p id="algo-argument-help" className="text-[11px] text-muted-foreground">Entero de 32 bits; se aplica sobre la estructura del lienzo.</p>
                 </>
               )}
               {error && (
@@ -373,7 +382,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                 )}
               </Button>
 
-              {presets.length > 0 && (
+              {usesValues && presets.length > 0 && (
                 <div className="flex flex-col gap-1 pt-1">
                   <p className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
                     Ejemplos predefinidos

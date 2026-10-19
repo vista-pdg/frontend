@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import {
-  Network,
   Users,
   Shield,
   Lock,
@@ -9,14 +7,12 @@ import {
   Pencil,
   Trash2,
   Check,
-  ChevronLeft,
-  LogOut,
   GraduationCap,
   History,
   Save,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/contexts/useAuth';
+import { ManagementHeader } from '@/components/ManagementHeader';
 import {
   fetchUsers,
   createUser,
@@ -868,7 +864,6 @@ function CoursesSection() {
 // ─── Main page ─────────────────────────────────────────────────────────────
 
 export function AdminPage() {
-  const { user, logout } = useAuth();
   const [tab, setTab] = useState<Tab>('users');
   const [roles, setRoles] = useState<RoleDto[]>([]);
   const [permissions, setPermissions] = useState<PermissionDto[]>([]);
@@ -886,54 +881,10 @@ export function AdminPage() {
   ];
 
   return (
-    <div className="h-full w-full overflow-y-auto bg-shell text-foreground">
+    <div className="h-full w-full overflow-y-auto bg-shell text-foreground scrollbar-custom [scrollbar-gutter:stable]">
       <div className="fixed top-0 left-0 right-0 h-[2px] bg-primary" />
 
-      {/* Header */}
-      <header className="border-b border-border bg-shell/90 backdrop-blur-md sticky top-[2px] z-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="size-8 bg-primary flex items-center justify-center shrink-0 text-primary-foreground">
-              <Network className="size-4 text-primary-foreground" />
-            </div>
-            <div>
-              <span className="text-[13px] font-bold tracking-[0.25em] text-foreground uppercase">VISTA</span>
-              <span className="text-muted-foreground mx-2 text-[13px]">/</span>
-              <span className="text-[13px] text-primary-light">Admin</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Link
-              to="/analytics"
-              data-cy="admin-analytics"
-              className="inline-flex min-h-11 items-center text-[12px] text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >Analítica</Link>
-            <Link
-              to="/"
-              className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors duration-150"
-            >
-              <ChevronLeft className="size-3.5" />
-              Volver al visualizador
-            </Link>
-            <div className="w-px h-4 bg-border" />
-            <div className="flex items-center gap-2">
-              <div className="size-6 bg-primary/20 border border-primary/40 flex items-center justify-center text-[10px] font-bold text-primary-light">
-                {user?.displayName?.[0]?.toUpperCase() ?? 'A'}
-              </div>
-              <span className="text-[12px] text-muted-foreground hidden sm:block">{user?.displayName}</span>
-            </div>
-            <button
-              onClick={logout}
-              className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-destructive transition-colors duration-150 p-1"
-              title="Cerrar sesión"
-              aria-label="Cerrar sesión"
-            >
-              <LogOut className="size-3.5" />
-            </button>
-          </div>
-        </div>
-      </header>
+      <ManagementHeader section="Admin" />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {/* Page title */}

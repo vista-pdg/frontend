@@ -14,7 +14,7 @@ const number = (value: number | null, percent = false) => value === null ? <Prot
 /** El orden procede del servidor; nunca se deduce el valor de una fila suprimida. */
 export function AnalyticsRanking({ report, view }: { report: PedagogicalReport; view: AnalyticsView }) {
   const empty = report[view].length === 0;
-  const rowClass = 'grid gap-3 p-4 sm:grid-cols-[1.2fr_2fr] sm:items-center';
+  const rowClass = 'grid gap-4 px-4 py-5 sm:grid-cols-[1.2fr_2fr] sm:items-center sm:px-5';
   return <section aria-label={`Ranking de ${analyticsViews.find(v => v.id === view)!.label.toLowerCase()}`} data-cy="analytics-ranking">
     <h2 className="sr-only">Ranking de {analyticsViews.find(v => v.id === view)!.label.toLowerCase()}</h2>
     {view === 'retries' && <p className="mb-4 text-sm leading-relaxed text-muted-foreground" data-cy="analytics-retry-rule">
