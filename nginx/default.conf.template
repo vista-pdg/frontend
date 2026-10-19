@@ -14,11 +14,14 @@ limit_req_status 429;
 # Authorization; no authentication token is stored in this cookie.
 map $cookie___session $backend_cookies {
     ""      $http_cookie;
+    "~^GAESA:(.+)$" "$http_cookie; GAESA=$1";
+    "~^GCLB:(.+)$"  "$http_cookie; GCLB=$1";
+    # Compatibility with the first bridge's unprefixed GCLB value.
     default "$http_cookie; GCLB=$cookie___session";
 }
 map $upstream_http_set_cookie $hosting_affinity_cookie {
     default "";
-    "~^GCLB=([^;]+)" "__session=$1; Path=/; Secure; HttpOnly; SameSite=Lax";
+    "~^(GAESA|GCLB)=([^;]+)" "__session=$1:$2; Path=/; Secure; HttpOnly; SameSite=Lax";
 }
 
 server {
