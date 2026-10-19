@@ -38,6 +38,7 @@ export function engineState(win: Window) {
 export function loadAvlDemo(values: string) {
   openSidebar();
   cy.get('[data-cy=demo-tree-avl]').click();
+  cy.get('[data-cy=algo-source-values]').check();
   cy.get('[data-cy=algo-values]').should('be.visible').clear().type(values);
   cy.intercept('POST', '/api/algorithm/steps').as('steps');
   cy.get('[data-cy=algo-generate]').click();

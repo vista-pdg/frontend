@@ -18,7 +18,7 @@ describe('Graph algorithms through the real API and player', () => {
     cy.loginByApi(SEEDED.student.email, SEEDED.student.password);
     cy.visit('/');
     cy.get('[data-cy=nav-graph]').click();
-    cy.window().then(win => win.__vista!.engine.loadStructure(nodes, edges, null));
+    cy.window().then(win => win.__vista!.engine.loadStructure(nodes, edges, {type: 'graph', subtype: 'simple', nodeCount: nodes.length, edgeCount: edges.length, computedProperties: {}}));
     cy.get('[data-cy=algorithm-toggle]').click();
   });
   for (const op of ['bfs','dfs','dijkstra','floyd','prim','kruskal']) {

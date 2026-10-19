@@ -3,8 +3,9 @@ import { TutorialCodeDemo } from './TutorialCodeDemo';
 
 const STEPS = [
   { title: 'Elige una estructura', description: 'La selección de esta barra define el contexto del chat y los algoritmos. Abre «Árboles» para elegir AVL o BST.', targets: ['[data-cy=nav-family-tree]'] },
+  { title: 'Chat y algoritmos', description: 'Chat genera y modifica estructuras. Algoritmos aplica operaciones paso a paso. Puedes crear una figura en el chat, cambiar a Algoritmos y elegir «Usar lienzo» si es compatible, o «Crear con valores» para generar otra desde ese panel.', targets: ['[data-cy=activity-selector]'] },
   { title: 'Describe desde el chat', description: 'Escribe aquí valores u operaciones de la estructura seleccionada. VISTA atiende consultas de estructuras y algoritmos.', targets: ['[data-cy=chat-compose]'] },
-  { title: 'Ejecuta un algoritmo', description: 'Elige una operación compatible y genera la demo. Después recorre el lienzo con Anterior, Siguiente o Reproducir.', targets: ['[data-cy=algo-form]', '[data-cy=algo-catalog]'] },
+  { title: 'Ejecuta un algoritmo', description: 'Elige una operación compatible. «Usar lienzo» procesa tu figura actual; «Crear con valores» construye otra al ejecutar. Después recorre los pasos con Anterior, Siguiente o Reproducir.', targets: ['[data-cy=algo-form]', '[data-cy=algo-catalog]'] },
   { title: 'Lee el código del paso', description: 'La línea resaltada corresponde al paso visual. Alterna Java y pseudocódigo y recorre los pasos para ver la relación. Si aún no hay código en tu sesión, aquí aparece un ejemplo de pila. También puedes copiar o descargar el código de tus demos.', targets: ['[data-cy=code-panel]', '[data-cy=tutorial-demo-area]'] },
   { title: 'Cambia la vista', description: 'Estos controles alternan 2D y 3D conservando la estructura y el paso. El tema claro u oscuro está en la barra lateral.', targets: ['[data-cy=mode-selector]'] },
 ] as const;

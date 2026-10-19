@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CircleHelp,
+  CornerDownRight,
   GitFork,
   GitBranch,
   ChevronUp,
@@ -130,7 +131,7 @@ export function AppSidebar({ tutorialStep = null, onTutorial }: AppSidebarProps)
       }}
       className={cn('absolute inset-y-0 left-0 z-40 flex flex-col bg-shell border-r border-border overflow-hidden transition-[width] duration-300 ease-out motion-reduce:transition-none', collapsed ? 'w-16' : 'w-[250px]')}
     >
-      <div className="flex shrink-0 flex-col items-start gap-2 border-b border-border px-4 py-4">
+      <div className="flex shrink-0 flex-col items-center gap-2 border-b border-border px-4 py-4">
         <div className="flex items-center gap-3 min-w-0" translate="no">
           <IcesiBrand collapsed={collapsed} />
         </div>
@@ -224,6 +225,7 @@ export function AppSidebar({ tutorialStep = null, onTutorial }: AppSidebarProps)
                                 : 'text-muted-foreground hover:bg-accent hover:text-foreground border-l-transparent'
                             )}
                           >
+                            <CornerDownRight className="size-3 shrink-0" aria-hidden="true" />
                             <span className="truncate">{sub.label}</span>
                           </button>
                           {sub.demoOp && (
