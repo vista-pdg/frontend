@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/http';
+import { GENERATION_RETRY_DELAYS_MS, generationFailure } from '@/lib/quiz';
 import { generateBankBatch } from '@/services/quizService';
 
 export type BankGeneration =
   | { status: 'idle' }
-  | { status: 'running' }
+  /** `retry`: reintento en curso tras un fallo transitorio (1 = primero). */
+  | { status: 'running'; retry?: number }
   | { status: 'paused' }
   | { status: 'error'; message: string }
   | { status: 'complete' };
@@ -17,10 +19,22 @@ export interface BankProgress {
 /** Lotes seguidos sin ninguna pregunta válida antes de rendirse: el modelo no está colaborando. */
 const MAX_EMPTY_BATCHES = 3;
 
+/** Espera cancelable: pausar durante un reintento no debe dejar un temporizador vivo. */
+function wait(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise(resolve => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+  });
+}
+
 /**
  * Genera el banco pidiendo lotes al servidor hasta completarlo (HU-34 · CA-2). El progreso vive en
- * el servidor: pausar, cerrar la página o un fallo del modelo conservan lo ya generado y la
- * generación se reanuda desde donde quedó.
+ * el servidor: pausar, cerrar la página o un fallo conservan lo ya generado y la generación se
+ * reanuda desde donde quedó.
+ *
+ * <p>Un banco de 60 preguntas son 15 o más peticiones seguidas; un corte breve de red o un 503 del
+ * modelo en una sola de ellas no debe detenerlo todo. Esos fallos se reintentan solos con espera
+ * creciente, y solo si persisten se muestra el error con su causa.
  */
 export function useBankGeneration(quizId: number | null, onProgress: (progress: BankProgress) => void) {
   const [state, setState] = useState<BankGeneration>({ status: 'idle' });
@@ -35,25 +49,34 @@ export function useBankGeneration(quizId: number | null, onProgress: (progress: 
     controller.current = run;
     setState({ status: 'running' });
     let empty = 0;
+    let failures = 0;
     try {
       for (;;) {
-        const batch = await generateBankBatch(id, run.signal);
-        if (run.signal.aborted) return;
-        notify.current({ bankSize: batch.bankSize, bankTarget: batch.bankTarget });
-        if (batch.complete) return setState({ status: 'complete' });
-        empty = batch.generated === 0 ? empty + 1 : 0;
-        if (empty >= MAX_EMPTY_BATCHES) {
-          return setState({ status: 'error', message: 'El modelo no produjo preguntas válidas en varios intentos. Reanuda la generación en unos minutos.' });
+        try {
+          const batch = await generateBankBatch(id, run.signal);
+          if (run.signal.aborted) return;
+          if (failures > 0) setState({ status: 'running' });
+          failures = 0;
+          notify.current({ bankSize: batch.bankSize, bankTarget: batch.bankTarget });
+          if (batch.complete) return setState({ status: 'complete' });
+          empty = batch.generated === 0 ? empty + 1 : 0;
+          if (empty >= MAX_EMPTY_BATCHES) {
+            return setState({ status: 'error', message: 'El modelo no produjo preguntas válidas en varios intentos. Reanuda la generación en unos minutos.' });
+          }
+        } catch (error) {
+          if (run.signal.aborted) return;
+          const failure = error instanceof ApiError
+            ? generationFailure(error.status, error.message)
+            : generationFailure(undefined);
+          if (!failure.retryable || failures >= GENERATION_RETRY_DELAYS_MS.length) {
+            return setState({ status: 'error', message: failure.message });
+          }
+          failures += 1;
+          setState({ status: 'running', retry: failures });
+          await wait(GENERATION_RETRY_DELAYS_MS[failures - 1], run.signal);
+          if (run.signal.aborted) return;
         }
       }
-    } catch (error) {
-      if (run.signal.aborted) return;
-      setState({
-        status: 'error',
-        message: error instanceof ApiError && error.status === 503
-          ? `${error.message} El banco conserva lo generado.`
-          : 'No se pudo generar el lote. El banco conserva lo generado.',
-      });
     } finally {
       if (controller.current === run) controller.current = null;
     }

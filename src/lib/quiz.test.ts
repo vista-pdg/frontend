@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   answeredCount, bankSize, blockedShortcut, clockOffset, formatDateTime, formatGrade, formatRemaining, groupTopics,
   phaseLabel, remainingMs, resultStatusLabel, studentStateLabel, toCreateRequest, toLocalInput, validateQuizForm,
-  answerMark, type QuizFormValues,
+  answerMark, generationFailure, GENERATION_RETRY_DELAYS_MS, type QuizFormValues,
 } from './quiz';
 
 const NOW = new Date('2026-11-17T12:00:00');
@@ -119,5 +119,34 @@ describe('atajos bloqueados en modo de prueba', () => {
     expect(key('a', { ctrlKey: true })).toBeNull();
     expect(key('Enter')).toBeNull();
     expect(key('z', { ctrlKey: true, shiftKey: true })).toBeNull();
+  });
+});
+
+describe('fallos al generar un lote', () => {
+  it('reintenta lo transitorio y explica la causa', () => {
+    const lost = generationFailure(undefined);
+    expect(lost.retryable).toBe(true);
+    expect(lost.message).toContain('Se perdió la conexión');
+    expect(lost.message).toContain('El banco conserva lo generado');
+    expect(generationFailure(0).retryable).toBe(true);
+    expect(generationFailure(503, 'El modelo no está disponible (503).')).toEqual({
+      retryable: true, message: 'El modelo no está disponible (503). El banco conserva lo generado.',
+    });
+    expect(generationFailure(503).message).toContain('El servicio del modelo no está disponible.');
+    for (const status of [429, 502, 504]) {
+      expect(generationFailure(status)).toMatchObject({ retryable: true, message: expect.stringContaining(`(${status})`) });
+    }
+    expect(GENERATION_RETRY_DELAYS_MS).toHaveLength(3);
+  });
+
+  it('no reintenta lo que otra petición no va a arreglar', () => {
+    expect(generationFailure(401)).toMatchObject({ retryable: false, message: expect.stringContaining('sesión expiró') });
+    expect(generationFailure(403).message).toBe('Ya no tienes acceso a este curso.');
+    expect(generationFailure(404).message).toBe('Este quiz ya no existe.');
+    expect(generationFailure(409, 'Un quiz publicado ya no admite cambios en su banco')).toEqual({
+      retryable: false, message: 'Un quiz publicado ya no admite cambios en su banco',
+    });
+    expect(generationFailure(409).message).toContain('(error 409)');
+    expect(generationFailure(500)).toEqual({ retryable: false, message: 'No se pudo generar el lote (error 500). El banco conserva lo generado.' });
   });
 });

@@ -18,24 +18,57 @@ describe('HU-34 · Estados de interfaz', () => {
     by('quiz-list-course').should('contain', 'CEDI-G1');
   });
 
-  it('un fallo del modelo conserva el banco y la generación se reanuda', () => {
-    newCourse().then(course => createDraftQuiz(course, { title: 'Borrador con fallo', questionsPerStudent: 3, studentCount: 2 }).then(quizId => {
+  // El fallo se controla con un interruptor y no contando peticiones: tras un corte de conexión
+  // Chrome y Firefox reenvían el POST por su cuenta un número distinto de veces.
+  it('un corte de red pasajero se reintenta solo y el banco se completa', () => {
+    newCourse().then(course => createDraftQuiz(course, { title: 'Borrador con cortes', questionsPerStudent: 3, studentCount: 2 }).then(quizId => {
       cy.clearLocalStorage();
       cy.loginByApi(SEEDED.admin.email, SEEDED.admin.password);
-      let calls = 0;
+      const network = { served: 0, down: false };
       cy.intercept('POST', `/api/quizzes/manage/${quizId}/bank/generate`, req => {
-        calls += 1;
-        if (calls === 2) req.reply({ statusCode: 503, body: { code: 'QUIZ_GENERATION_UNAVAILABLE', message: 'El servicio del modelo no está disponible en este momento (503).' } });
-        else req.continue();
+        if (network.down) return req.reply({ forceNetworkError: true });
+        network.served += 1;
+        // Tras el primer lote la conexión cae, como al cambiar de red a mitad de la generación.
+        if (network.served === 1) req.on('response', () => { network.down = true; });
+        req.continue();
       });
+      cy.visit(`/docencia/quizzes/${quizId}`);
+      by('bank-generate').should('contain', 'Generar 6 faltantes').click();
+      by('bank-retrying').should('contain', 'Reintentando el lote (1 de 3)');
+      cy.then(() => { network.down = false; });
+      cy.get('[data-cy=bank-progress]', { timeout: 20000 }).should('have.attr', 'data-status', 'complete');
+      cy.get('[data-cy=bank-error]').should('not.exist');
+      cy.get('[data-cy=bank-retrying]').should('not.exist');
+      by('bank-question').should('have.length', 6);
+    }));
+  });
+
+  it('si el corte persiste muestra la causa y la generación se reanuda a mano', () => {
+    newCourse().then(course => createDraftQuiz(course, { title: 'Borrador sin red', questionsPerStudent: 3, studentCount: 2 }).then(quizId => {
+      cy.clearLocalStorage();
+      cy.loginByApi(SEEDED.admin.email, SEEDED.admin.password);
+      const network = { served: 0, down: false };
+      cy.intercept('POST', `/api/quizzes/manage/${quizId}/bank/generate`, req => {
+        if (network.down) return req.reply({ forceNetworkError: true });
+        network.served += 1;
+        if (network.served === 1) req.on('response', () => { network.down = true; });
+        req.continue();
+      });
+      cy.clock(Date.now(), ['setTimeout']);
       cy.visit(`/docencia/quizzes/${quizId}`);
       by('quiz-bank-empty').should('be.visible');
       by('quiz-results-draft').should('not.exist');
       by('quiz-publish').should('be.disabled');
-      by('bank-generate').should('contain', 'Generar 6 faltantes').click();
-      by('bank-error').should('contain', 'no está disponible').and('contain', 'El banco conserva lo generado');
+      by('bank-generate').click();
+      for (const attempt of [1, 2, 3]) {
+        by('bank-retrying').should('contain', `(${attempt} de 3)`);
+        cy.tick(10_000);
+      }
+      by('bank-error').should('contain', 'Se perdió la conexión').and('contain', 'El banco conserva lo generado');
       by('bank-progress-count').should('contain', '3 de 6 preguntas');
       by('bank-question').should('have.length', 3);
+      cy.clock().invoke('restore');
+      cy.then(() => { network.down = false; });
       by('bank-resume').click();
       by('bank-progress').should('have.attr', 'data-status', 'complete');
       by('bank-question').should('have.length', 6);

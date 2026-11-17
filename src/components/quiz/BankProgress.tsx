@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
+import { GENERATION_RETRY_DELAYS_MS } from '@/lib/quiz';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { MicroLabel } from './QuizPageShell';
@@ -22,9 +24,15 @@ export function BankProgress({ state, bankSize, bankTarget, onStart, onPause, re
       <div role="progressbar" aria-label="Preguntas generadas" aria-valuemin={0} aria-valuemax={bankTarget} aria-valuenow={bankSize} className="h-1.5 bg-muted">
         <div className="h-full bg-primary transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${ratio * 100}%` }} />
       </div>
+      {running && state.retry !== undefined && (
+        <p role="status" data-cy="bank-retrying" className="flex items-center gap-2 text-xs leading-relaxed text-foreground">
+          <RefreshCw className="size-3.5 shrink-0 text-annotation-yellow motion-safe:animate-spin" aria-hidden="true" />
+          Se perdió la conexión. Reintentando el lote ({state.retry} de {GENERATION_RETRY_DELAYS_MS.length})…
+        </p>
+      )}
       {running && (
         <>
-          <p role="status" className="text-xs leading-relaxed text-muted-foreground">
+          <p role={state.retry === undefined ? 'status' : undefined} className="text-xs leading-relaxed text-muted-foreground">
             Cada lote ejecuta el algoritmo real y pide al modelo preguntas sobre ese rastro. Puedes cerrar esta página: el banco conserva lo generado.
           </p>
           <Button variant="outline" className="min-h-11 px-4" onClick={onPause} data-cy="bank-pause">Pausar</Button>

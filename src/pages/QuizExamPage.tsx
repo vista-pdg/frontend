@@ -112,7 +112,8 @@ export function QuizExamPage() {
 
   const onIncident = useCallback((type: IntegrityEventType) => {
     setIncidents(count => count + 1);
-    reportIntegrityEvent(quizId, type).then(setIncidents).catch(() => undefined);
+    // Las respuestas pueden llegar desordenadas: el conteo nunca retrocede por una atrasada.
+    reportIntegrityEvent(quizId, type).then(count => setIncidents(current => Math.max(current, count))).catch(() => undefined);
   }, [quizId]);
   const { obscured, resume } = useExamGuard(running, onIncident);
 

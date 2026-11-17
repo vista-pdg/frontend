@@ -205,3 +205,36 @@ export function blockedShortcut(event: {
   if (event.shiftKey && (key === 'i' || key === 'j' || key === 's')) return 'SHORTCUT';
   return null;
 }
+
+/** Esperas antes de reintentar un lote tras un fallo transitorio; su número es el de reintentos. */
+export const GENERATION_RETRY_DELAYS_MS = [2_000, 5_000, 10_000] as const;
+
+export interface GenerationFailure {
+  /** Corte de red, tiempo agotado o 429/502/503/504: vale la pena reintentar el mismo lote. */
+  retryable: boolean;
+  message: string;
+}
+
+const KEEPS_BANK = 'El banco conserva lo generado.';
+
+/**
+ * Traduce el fallo de un lote a una causa comprensible. Sin `status` la petición nunca obtuvo
+ * respuesta: corte de red, cambio de conexión o tiempo agotado. Es la causa más común en un banco
+ * largo, que encadena decenas de peticiones.
+ */
+export function generationFailure(status: number | undefined, serverMessage?: string): GenerationFailure {
+  if (status === undefined || status === 0) {
+    return { retryable: true, message: `Se perdió la conexión con el servidor. ${KEEPS_BANK} Revisa tu red y reanuda.` };
+  }
+  if (status === 503) {
+    return { retryable: true, message: `${serverMessage || 'El servicio del modelo no está disponible.'} ${KEEPS_BANK}` };
+  }
+  if (status === 429 || status === 502 || status === 504) {
+    return { retryable: true, message: `El servidor no respondió a tiempo (${status}). ${KEEPS_BANK}` };
+  }
+  if (status === 401) return { retryable: false, message: `Tu sesión expiró. Inicia sesión de nuevo; ${KEEPS_BANK.toLowerCase()}` };
+  if (status === 403) return { retryable: false, message: 'Ya no tienes acceso a este curso.' };
+  if (status === 404) return { retryable: false, message: 'Este quiz ya no existe.' };
+  if (status === 409 && serverMessage) return { retryable: false, message: serverMessage };
+  return { retryable: false, message: `No se pudo generar el lote (error ${status}). ${KEEPS_BANK}` };
+}
