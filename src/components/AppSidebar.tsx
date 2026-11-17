@@ -18,6 +18,7 @@ import {
   LogOut,
   Layers,
   ArrowRightToLine,
+  ClipboardList,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -64,9 +65,11 @@ const NAV_ITEMS: NavItem[] = [
 interface AppSidebarProps {
   tutorialStep?: number | null;
   onTutorial: () => void;
+  /** HU-34: en el modo de prueba solo queda la navegación de estructuras; nada que saque del quiz. */
+  examMode?: boolean;
 }
 
-export function AppSidebar({ tutorialStep = null, onTutorial }: AppSidebarProps) {
+export function AppSidebar({ tutorialStep = null, onTutorial, examMode = false }: AppSidebarProps) {
   const [pinned, setPinned] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -305,10 +308,14 @@ export function AppSidebar({ tutorialStep = null, onTutorial }: AppSidebarProps)
       </div>
 
       <div data-cy="sidebar-tools" className="shrink-0 border-t border-border py-2 px-1.5 space-y-1">
-        <button type="button" data-cy="tutorial-open" aria-label="Guía de VISTA" title={collapsed ? 'Guía de VISTA' : undefined}
+        {!examMode && <Link to={isTeacher || isAdmin ? '/docencia/quizzes' : '/quizzes'} data-cy="sidebar-quizzes" aria-label="Quizzes" title={collapsed ? 'Quizzes' : undefined}
+          className={cn('flex w-full items-center gap-3 py-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring', collapsed ? 'justify-center' : 'px-3')}>
+          <ClipboardList className="size-4 shrink-0" aria-hidden="true" /><span className={collapsed ? 'sr-only' : ''}>Quizzes</span>
+        </Link>}
+        {!examMode && <button type="button" data-cy="tutorial-open" aria-label="Guía de VISTA" title={collapsed ? 'Guía de VISTA' : undefined}
           onClick={onTutorial} className={cn('flex w-full items-center gap-3 py-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring', collapsed ? 'justify-center' : 'px-3')}>
           <CircleHelp className="size-4 shrink-0" aria-hidden="true" /><span className={collapsed ? 'sr-only' : ''}>Guía de VISTA</span>
-        </button>
+        </button>}
         <ThemeToggle sidebar compact={collapsed} onMenuOpenChange={setThemeMenuOpen} />
         <button type="button" data-cy="sidebar-toggle" aria-controls="structure-navigation" aria-expanded={!collapsed}
           aria-label={collapsed ? 'Expandir navegación' : pinned ? 'Contraer navegación' : 'Fijar navegación'}
@@ -321,7 +328,7 @@ export function AppSidebar({ tutorialStep = null, onTutorial }: AppSidebarProps)
       </div>
 
       {/* User footer */}
-      {user && (
+      {user && !examMode && (
         <>
           <Separator className="bg-border shrink-0" />
           <div

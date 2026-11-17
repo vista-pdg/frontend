@@ -31,7 +31,7 @@ src/
   core/         núcleo de visualización: motor, contrato de renderizado, layouts 2D (ver core/README.md)
   renderers/    adaptadores: three/ (3D) y svg/ (2D), más la composición en appEngine.ts
   components/   shell de la app, overlay del lienzo, paneles de chat y algoritmo, primitivos ui/
-  pages/        bienvenida (login/registro), administración, panel del docente
+  pages/        bienvenida (login/registro), administración, panel del docente, quizzes
   store/        graphStore (Zustand): refleja el motor y guarda el estado de la interfaz
   services/     llamadas a la API; lib/http.ts es el único cliente axios
   contexts/     AuthContext; lib/session.ts guarda la sesión
@@ -85,6 +85,12 @@ Los algoritmos instrumentados del catálogo traen su pseudocódigo, la línea qu
 ejecuta cada paso, las variables vigentes y —en los recursivos— la pila de llamadas: el **panel de
 código** (`CodePanel`) resalta esa línea a la vez que el lienzo resalta el nodo, muestra las
 variables y los marcos, en 2D y en 3D, y «Anterior» devuelve todo al paso previo.
+
+## Quizzes
+
+Los estudiantes presentan en `/quizzes` los quizzes de su curso dentro de un modo de prueba que
+reutiliza el espacio de trabajo; docentes y administradores los crean y califican en
+`/docencia/quizzes`. Ver [rutas, modo de prueba y generación del banco](docs/quizzes.md).
 
 ## Diseño
 

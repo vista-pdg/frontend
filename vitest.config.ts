@@ -15,7 +15,9 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/core/**/*.ts', 'src/pages/AnalyticsPage.tsx', 'src/components/AnalyticsRanking.tsx',
         'src/components/CourseManagementSection.tsx',
-        'src/lib/analytics.ts', 'src/services/pedagogicalAnalyticsService.ts'],
+        'src/lib/analytics.ts', 'src/services/pedagogicalAnalyticsService.ts',
+        // HU-34: lógica pura y contrato HTTP de los quizzes.
+        'src/lib/quiz.ts', 'src/services/quizService.ts'],
       exclude: ['src/core/index.ts', 'src/core/__tests__/**'],
       reporter: ['text', 'text-summary'],
       thresholds: { lines: 80, statements: 80, functions: 80, branches: 75 },

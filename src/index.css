@@ -227,3 +227,22 @@ body,
     }
   }
 }
+
+/* HU-34 · Modo de prueba: sin selección de texto ni impresión mientras dura el intento. Los campos
+   de texto conservan la selección para que el chat de VISTA siga siendo usable. */
+.exam-mode,
+.exam-mode body {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.exam-mode input,
+.exam-mode textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+@media print {
+  .exam-mode body {
+    display: none !important;
+  }
+}

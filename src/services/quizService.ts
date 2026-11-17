@@ -1,0 +1,120 @@
+import http from '@/lib/http';
+import type {
+  AttemptDto,
+  CreateQuizRequest,
+  GenerateBatchResponse,
+  IntegrityEventType,
+  ManagedCourseDto,
+  QuizDetailDto,
+  QuizResultsDto,
+  QuizSummaryDto,
+  QuizTopicDto,
+  StudentQuizListDto,
+} from '@/types/quiz';
+
+// ── Estudiante ──────────────────────────────────────────────────────────
+
+export async function fetchMyQuizzes(signal?: AbortSignal): Promise<StudentQuizListDto> {
+  const { data } = await http.get<StudentQuizListDto>('/quizzes', { signal });
+  return data;
+}
+
+/** Idempotente: si el intento ya existe, lo devuelve tal como está. */
+export async function startAttempt(quizId: number): Promise<AttemptDto> {
+  const { data } = await http.post<AttemptDto>(`/quizzes/${quizId}/attempt`);
+  return data;
+}
+
+export async function fetchAttempt(quizId: number, signal?: AbortSignal): Promise<AttemptDto> {
+  const { data } = await http.get<AttemptDto>(`/quizzes/${quizId}/attempt`, { signal });
+  return data;
+}
+
+export async function answerQuestion(
+  quizId: number,
+  position: number,
+  selectedOption: number | null,
+): Promise<AttemptDto> {
+  const { data } = await http.put<AttemptDto>(`/quizzes/${quizId}/attempt/answers/${position}`, {
+    selectedOption,
+  });
+  return data;
+}
+
+export async function submitAttempt(quizId: number): Promise<AttemptDto> {
+  const { data } = await http.post<AttemptDto>(`/quizzes/${quizId}/attempt/submit`);
+  return data;
+}
+
+export async function reportIntegrityEvent(quizId: number, type: IntegrityEventType): Promise<number> {
+  const { data } = await http.post<{ integrityEvents: number }>(`/quizzes/${quizId}/attempt/integrity`, {
+    type,
+  });
+  return data.integrityEvents;
+}
+
+// ── Gestión (docente / administrador) ───────────────────────────────────
+
+export async function fetchManagedCourses(signal?: AbortSignal): Promise<ManagedCourseDto[]> {
+  const { data } = await http.get<ManagedCourseDto[]>('/quizzes/manage/courses', { signal });
+  return data;
+}
+
+export async function fetchQuizTopics(signal?: AbortSignal): Promise<QuizTopicDto[]> {
+  const { data } = await http.get<QuizTopicDto[]>('/quizzes/manage/topics', { signal });
+  return data;
+}
+
+export async function fetchManagedQuizzes(courseCode: string, signal?: AbortSignal): Promise<QuizSummaryDto[]> {
+  const { data } = await http.get<QuizSummaryDto[]>('/quizzes/manage', { params: { courseCode }, signal });
+  return data;
+}
+
+export async function createQuiz(request: CreateQuizRequest): Promise<QuizSummaryDto> {
+  const { data } = await http.post<QuizSummaryDto>('/quizzes/manage', request);
+  return data;
+}
+
+export async function fetchQuizDetail(quizId: number, signal?: AbortSignal): Promise<QuizDetailDto> {
+  const { data } = await http.get<QuizDetailDto>(`/quizzes/manage/${quizId}`, { signal });
+  return data;
+}
+
+export async function generateBankBatch(quizId: number, signal?: AbortSignal): Promise<GenerateBatchResponse> {
+  const { data } = await http.post<GenerateBatchResponse>(`/quizzes/manage/${quizId}/bank/generate`, null, {
+    signal,
+  });
+  return data;
+}
+
+export async function deleteBankQuestion(quizId: number, questionId: number): Promise<void> {
+  await http.delete(`/quizzes/manage/${quizId}/questions/${questionId}`);
+}
+
+export async function publishQuiz(quizId: number): Promise<QuizSummaryDto> {
+  const { data } = await http.post<QuizSummaryDto>(`/quizzes/manage/${quizId}/publish`);
+  return data;
+}
+
+export async function setGradeVisibility(quizId: number, showGrade: boolean): Promise<QuizSummaryDto> {
+  const { data } = await http.put<QuizSummaryDto>(`/quizzes/manage/${quizId}/grade-visibility`, { showGrade });
+  return data;
+}
+
+export async function deleteQuiz(quizId: number): Promise<void> {
+  await http.delete(`/quizzes/manage/${quizId}`);
+}
+
+export async function fetchQuizResults(quizId: number, signal?: AbortSignal): Promise<QuizResultsDto> {
+  const { data } = await http.get<QuizResultsDto>(`/quizzes/manage/${quizId}/results`, { signal });
+  return data;
+}
+
+/** El reporte lo arma el servidor a partir de los mismos resultados que muestra el panel. */
+export async function fetchQuizReport(quizId: number, format: 'csv' | 'xlsx', signal?: AbortSignal): Promise<Blob> {
+  const { data } = await http.get<Blob>(`/quizzes/manage/${quizId}/results.${format}`, {
+    responseType: 'blob',
+    signal,
+  });
+  return data;
+}

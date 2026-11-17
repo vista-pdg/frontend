@@ -7,6 +7,10 @@ import App from './App.tsx';
 import { WelcomePage } from './pages/WelcomePage.tsx';
 import { AdminPage } from './pages/AdminPage.tsx';
 import { AnalyticsPage } from './pages/AnalyticsPage.tsx';
+import { QuizListPage } from './pages/QuizListPage.tsx';
+import { QuizExamPage } from './pages/QuizExamPage.tsx';
+import { QuizManagementPage } from './pages/QuizManagementPage.tsx';
+import { QuizDetailPage } from './pages/QuizDetailPage.tsx';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 import { RedirectIfAuthenticated, RequireAuth, RequireRole } from './routes/guards.tsx';
 
@@ -39,6 +43,42 @@ createRoot(document.getElementById('root')!).render(
               <RequireAuth>
                 <RequireRole role={['TEACHER', 'ADMIN']}>
                   <AnalyticsPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/quizzes"
+            element={
+              <RequireAuth>
+                <QuizListPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/quizzes/:quizId/presentar"
+            element={
+              <RequireAuth>
+                <QuizExamPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/docencia/quizzes"
+            element={
+              <RequireAuth>
+                <RequireRole role={['TEACHER', 'ADMIN']}>
+                  <QuizManagementPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/docencia/quizzes/:quizId"
+            element={
+              <RequireAuth>
+                <RequireRole role={['TEACHER', 'ADMIN']}>
+                  <QuizDetailPage />
                 </RequireRole>
               </RequireAuth>
             }

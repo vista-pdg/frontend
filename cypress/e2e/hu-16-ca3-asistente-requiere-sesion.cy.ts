@@ -50,16 +50,15 @@ describe('HU-16 · CA-3 Bloqueo de acceso anonimo al asistente', () => {
     });
     cy.intercept('POST', '/api/generate').as('generate');
 
-    cy.intercept('GET', '/api/assistant/quota').as('quota');
+    cy.intercept('GET', '/api/quizzes').as('quizzes');
 
     cy.visit('/');
-    cy.location('pathname').should('eq', '/');
-    cy.get('[data-cy=chat-toggle]').click();
 
-    // Desde HU-17 el panel pide el contador de cuota al abrirse, y ese es el primer 401 que recibe
-    // una sesion invalida: el sistema la expulsa antes incluso de que pueda escribir. El 401 al
-    // enviar una instruccion lo cubre la prueba por API de arriba.
-    cy.wait('@quota').its('response.statusCode').should('eq', 401);
+    // Desde HU-34 el visualizador consulta al entrar los quizzes pendientes del estudiante, y ese
+    // es el primer 401 que recibe una sesion invalida (antes, desde HU-17, era el contador de
+    // cuota al abrir el chat): el sistema la expulsa antes incluso de que pueda escribir. El 401
+    // al enviar una instruccion lo cubre la prueba por API de arriba.
+    cy.wait('@quizzes').its('response.statusCode').should('eq', 401);
     cy.location('pathname', { timeout: 10000 }).should('eq', '/login');
     cy.get('[data-cy=welcome-screen]').should('be.visible');
     cy.storedSession().then((s) => {
