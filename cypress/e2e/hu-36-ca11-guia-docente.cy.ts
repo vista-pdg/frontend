@@ -9,7 +9,12 @@ describe('HU-36 · Guía de VISTA del docente', () => {
     cy.loginByApi(SEEDED.teacher.email, SEEDED.teacher.password);
     cy.visit('/');
     by('tutorial-open').click();
-    for (let i = 0; i < 6; i++) by('tutorial-next').click();
+    by('tutorial-callout').should('contain', '1 / 8');
+    // Cada clic espera a que el paso avance: un clic durante la transición no debe perderse.
+    for (let step = 2; step <= 7; step++) {
+      by('tutorial-next').click();
+      by('tutorial-callout').should('contain', `${step} / 8`);
+    }
     by('tutorial-callout').should('contain', '7 / 8').and('contain', 'material del curso').and('contain', 'con IA');
     by('tutorial-next').click();
     by('tutorial-highlight').should('have.attr', 'data-target', '[data-cy=sidebar-analytics]');

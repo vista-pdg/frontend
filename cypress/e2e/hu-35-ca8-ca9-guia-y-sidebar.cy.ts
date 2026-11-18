@@ -6,7 +6,12 @@ import { by } from '../support/hu34';
 describe('HU-35 · Guía de VISTA y barra lateral', () => {
   function stepTo(count: number) {
     by('tutorial-open').click();
-    for (let i = 0; i < count; i++) by('tutorial-next').click();
+    by('tutorial-callout').should('contain', '1 / ');
+    // Cada clic espera a que el paso avance: un clic durante la transición no debe perderse.
+    for (let step = 2; step <= count + 1; step++) {
+      by('tutorial-next').click();
+      by('tutorial-callout').should('contain', `${step} / `);
+    }
   }
 
   it('el estudiante termina la guía en los quizzes de su curso y los de estudio', () => {
