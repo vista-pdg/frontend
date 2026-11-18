@@ -7,6 +7,7 @@ import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { QuizBadge } from '@/components/quiz/QuizBadge';
+import { ScenarioCard } from '@/components/quiz/ScenarioCard';
 import { MicroLabel } from '@/components/quiz/QuizPageShell';
 import { useAuth } from '@/contexts/useAuth';
 import { enterFullscreen, leaveFullscreen, useExamGuard } from '@/hooks/useExamGuard';
@@ -306,10 +307,7 @@ export function QuizExamPage() {
               ))}
             </nav>
             <MicroLabel>Pregunta {current} de {total} · {question.topicLabel}</MicroLabel>
-            <div className="space-y-2 border-l-2 border-annotation-yellow bg-shell p-3">
-              <MicroLabel>Escenario para reproducir en VISTA</MicroLabel>
-              <p className="text-[13px] leading-relaxed break-words" data-cy="quiz-scenario">{question.scenario}</p>
-            </div>
+            <ScenarioCard scenario={question.scenario} setup={question.setup} position={question.position} onReveal={() => setMobileTab('vista')} />
             <p id="quiz-statement" className="text-sm font-medium leading-relaxed break-words" data-cy="quiz-statement">{question.statement}</p>
             <div role="radiogroup" aria-labelledby="quiz-statement" className="space-y-2" data-cy="quiz-options">
               {question.options.map((option, index) => {

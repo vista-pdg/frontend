@@ -215,26 +215,117 @@ export interface GenerationFailure {
   message: string;
 }
 
-const KEEPS_BANK = 'El banco conserva lo generado.';
+/** Qué conserva un fallo: el banco del docente o el quiz de estudio (HU-35). */
+export const KEEPS_BANK = 'El banco conserva lo generado.';
+export const KEEPS_STUDY = 'Tu quiz conserva lo generado.';
 
 /**
  * Traduce el fallo de un lote a una causa comprensible. Sin `status` la petición nunca obtuvo
  * respuesta: corte de red, cambio de conexión o tiempo agotado. Es la causa más común en un banco
- * largo, que encadena decenas de peticiones.
+ * largo, que encadena decenas de peticiones. Los lotes de estudio gastan la cuota del asistente:
+ * agotarla (HU-35) no se arregla reintentando.
  */
-export function generationFailure(status: number | undefined, serverMessage?: string): GenerationFailure {
+export function generationFailure(status: number | undefined, serverMessage?: string, code?: string, keeps: string = KEEPS_BANK): GenerationFailure {
+  if (code === 'DAILY_QUOTA_EXCEEDED') {
+    return { retryable: false, message: `Alcanzaste tu límite diario del asistente. ${keeps} Podrás completarlo después de medianoche.` };
+  }
   if (status === undefined || status === 0) {
-    return { retryable: true, message: `Se perdió la conexión con el servidor. ${KEEPS_BANK} Revisa tu red y reanuda.` };
+    return { retryable: true, message: `Se perdió la conexión con el servidor. ${keeps} Revisa tu red y reanuda.` };
   }
   if (status === 503) {
-    return { retryable: true, message: `${serverMessage || 'El servicio del modelo no está disponible.'} ${KEEPS_BANK}` };
+    return { retryable: true, message: `${serverMessage || 'El servicio del modelo no está disponible.'} ${keeps}` };
   }
   if (status === 429 || status === 502 || status === 504) {
-    return { retryable: true, message: `El servidor no respondió a tiempo (${status}). ${KEEPS_BANK}` };
+    return { retryable: true, message: `El servidor no respondió a tiempo (${status}). ${keeps}` };
   }
-  if (status === 401) return { retryable: false, message: `Tu sesión expiró. Inicia sesión de nuevo; ${KEEPS_BANK.toLowerCase()}` };
-  if (status === 403) return { retryable: false, message: 'Ya no tienes acceso a este curso.' };
+  if (status === 401) return { retryable: false, message: `Tu sesión expiró. Inicia sesión de nuevo; ${keeps.charAt(0).toLowerCase()}${keeps.slice(1)}` };
+  if (status === 403) return { retryable: false, message: keeps === KEEPS_BANK ? 'Ya no tienes acceso a este curso.' : 'No tienes acceso a este quiz.' };
   if (status === 404) return { retryable: false, message: 'Este quiz ya no existe.' };
   if (status === 409 && serverMessage) return { retryable: false, message: serverMessage };
-  return { retryable: false, message: `No se pudo generar el lote (error ${status}). ${KEEPS_BANK}` };
+  return { retryable: false, message: `No se pudo generar el lote (error ${status}). ${keeps}` };
+}
+
+/** Avance de un quiz de estudio para su fila: lo generado, lo respondido y la ayuda usada. */
+export function studyProgressLine(quiz: { questionCount: number; generated: number; answered: number; correct: number; hintsUsed: number; solutionsShown: number }): string {
+  if (quiz.generated < quiz.questionCount) return `${quiz.generated} de ${quiz.questionCount} generadas · la generación no ha terminado`;
+  const parts = [`${quiz.answered} de ${quiz.questionCount} respondidas`, `${quiz.correct} ${quiz.correct === 1 ? 'acierto' : 'aciertos'}`];
+  if (quiz.hintsUsed > 0) parts.push(`${quiz.hintsUsed} ${quiz.hintsUsed === 1 ? 'pista' : 'pistas'}`);
+  if (quiz.solutionsShown > 0) parts.push(`${quiz.solutionsShown} ${quiz.solutionsShown === 1 ? 'solución vista' : 'soluciones vistas'}`);
+  return parts.join(' · ');
+}
+
+export type StudyState = 'INCOMPLETE' | 'IN_PROGRESS' | 'COMPLETE';
+
+export function studyState(quiz: { questionCount: number; generated: number; answered: number; solutionsShown: number }): StudyState {
+  if (quiz.generated < quiz.questionCount) return 'INCOMPLETE';
+  return quiz.answered + quiz.solutionsShown >= quiz.questionCount ? 'COMPLETE' : 'IN_PROGRESS';
+}
+
+export const studyStateLabel: Record<StudyState, { label: string; tone: QuizTone }> = {
+  INCOMPLETE: { label: 'Incompleto', tone: 'neutral' },
+  IN_PROGRESS: { label: 'En curso', tone: 'warning' },
+  COMPLETE: { label: 'Completo', tone: 'success' },
+};
+
+export type OptionMark = 'chosen-correct' | 'chosen-wrong' | 'correct' | 'none';
+
+/** Marca de una opción ya resuelta: la elegida, la correcta o ninguna. El texto acompaña al color. */
+export function optionMark(index: number, selected: number | null, correct: number | null): OptionMark {
+  if (correct === null) return 'none';
+  if (index === selected) return index === correct ? 'chosen-correct' : 'chosen-wrong';
+  return index === correct ? 'correct' : 'none';
+}
+
+/** `aria-describedby` de un campo: su error o, si no hay, su ayuda. */
+export function fieldDescribedBy(id: string, error?: string, hint?: string): string | undefined {
+  return error ? `${id}-error` : hint ? `${id}-hint` : undefined;
+}
+
+/**
+ * Lotes que costará un quiz de estudio, con el mismo reparto que el servidor: cada lote es del tema
+ * menos cubierto, de hasta `batchSize` preguntas y sin pasar la parte de ese tema. Supone que el
+ * modelo no descarta preguntas; es la cuenta que se muestra antes de generar.
+ */
+export function estimatedBatches(target: number, topicCount: number, batchSize = 4): number {
+  if (target < 1 || topicCount < 1) return 0;
+  const share = Math.ceil(target / topicCount);
+  const covered = new Array<number>(topicCount).fill(0);
+  let generated = 0;
+  let batches = 0;
+  while (generated < target) {
+    const topic = covered.indexOf(Math.min(...covered));
+    const count = Math.min(Math.max(1, batchSize), target - generated, Math.max(1, share - covered[topic]));
+    covered[topic] += count;
+    generated += count;
+    batches += 1;
+  }
+  return batches;
+}
+
+export interface StudyFormErrors {
+  topics?: string;
+  questionCount?: string;
+  title?: string;
+}
+
+/** Validación del formulario de estudio; las mismas reglas que el servidor. */
+export function validateStudyForm(values: { title: string; topics: string[]; questionCount: string }): StudyFormErrors {
+  const errors: StudyFormErrors = {};
+  if (values.topics.length === 0) errors.topics = 'Selecciona al menos un tema.';
+  const count = Number(values.questionCount);
+  if (!Number.isInteger(count) || count < 1 || count > 10) errors.questionCount = 'Elige de 1 a 10 preguntas.';
+  if (values.title.trim().length > 160) errors.title = 'El título admite hasta 160 caracteres.';
+  return errors;
+}
+
+/** Resumen de un quiz de estudio a partir de sus preguntas: lo que se pinta tras cada acción. */
+export function studySummary(questions: { selectedOption: number | null; correctOption: number | null; hintShown: boolean; solutionShown: boolean }[]) {
+  const answered = questions.filter(q => q.selectedOption !== null);
+  return {
+    answered: answered.length,
+    correct: answered.filter(q => q.selectedOption === q.correctOption).length,
+    hints: questions.filter(q => q.hintShown).length,
+    solutions: questions.filter(q => q.solutionShown).length,
+    resolved: questions.filter(q => q.selectedOption !== null || q.solutionShown).length,
+  };
 }

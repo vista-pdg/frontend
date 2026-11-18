@@ -67,6 +67,28 @@ function mirror(e: EngineState): VisualizationMirror {
   };
 }
 
+/**
+ * Texto que otra pantalla deja escrito en el chat (HU-35): el escenario de una pregunta. El panel lo
+ * copia al campo sin enviarlo y lo consume; `id` distingue dos inserciones del mismo texto.
+ */
+export interface ChatDraft {
+  text: string;
+  /** Aviso sobre el campo: de dónde viene el texto y qué hacer con él. */
+  note?: string;
+  id: number;
+}
+
+/** Algoritmo y entradas que otra pantalla deja preparados en el panel de algoritmos (HU-35). */
+export interface AlgorithmDraft {
+  key: string;
+  values: number[] | null;
+  argument: number | null;
+  source: 'canvas' | 'values';
+  /** Aviso bajo los campos: de dónde vienen los valores. */
+  note: string;
+  id: number;
+}
+
 interface GraphState extends VisualizationMirror {
   messages: ChatMessage[];
   loading: boolean;
@@ -114,6 +136,8 @@ interface GraphState extends VisualizationMirror {
   reportedProgress: number;
   /** Entrada del catálogo elegida en el panel; deriva de algorithmType/Subtype/Operation. */
   selectedAlgorithm: AlgorithmDescriptor | null;
+  chatDraft: ChatDraft | null;
+  algorithmDraft: AlgorithmDraft | null;
 
   sendPrompt: (prompt: string) => Promise<void>;
   clearAll: () => void;
@@ -143,6 +167,12 @@ interface GraphState extends VisualizationMirror {
   prevStep: () => void;
   /** Avisa al registro analítico si el paso actual es el último del rastro (HU-21 · CA-2). */
   reportCompletionIfFinished: () => void;
+  /** Abre el chat con la estructura indicada y deja `text` escrito, sin enviarlo (HU-35). */
+  prefillChat: (text: string, type: string | null, subtype: string | null, note?: string) => void;
+  /** Selecciona el algoritmo y deja sus entradas listas; con `open`, además abre el panel (HU-35). */
+  prefillAlgorithm: (draft: Omit<AlgorithmDraft, 'id'>, open: boolean) => void;
+  consumeChatDraft: () => void;
+  consumeAlgorithmDraft: () => void;
 }
 
 export const useGraphStore = create<GraphState>((set, get) => ({
@@ -177,6 +207,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   activeExecutionId: null,
   reportedProgress: 0,
   selectedAlgorithm: null,
+  chatDraft: null,
+  algorithmDraft: null,
 
   sendPrompt: async (prompt: string) => {
     if (get().loading || get().assistantBlocked) return;
@@ -327,6 +359,31 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   setChatOpen: (open) => set({ chatOpen: open }),
+
+  prefillChat: (text, type, subtype, note) => {
+    if (type) get().setActiveStructureType(type, subtype);
+    set({ chatOpen: true, algorithmOpen: false, chatDraft: { text, note, id: Date.now() } });
+  },
+
+  prefillAlgorithm: (draft, open) => {
+    const [type, subtype, operation] = draft.key.split('/');
+    // Mismo camino que las demos: el contexto pasa a la familia del algoritmo y luego se elige.
+    if (open) get().openAlgorithmDemo(type, subtype, operation);
+    else {
+      // Si el chat ya fijó esta familia (p. ej. «hash-table» sin subtipo), se respeta.
+      if (get().activeStructureType !== type) get().setActiveStructureType(type, subtype === 'simple' ? null : subtype);
+      const select = () => {
+        const found = get().catalog.find((d) => algorithmKey(d) === draft.key);
+        if (found && algorithmFitsContext(found, get().activeStructureType, get().activeSubtype)) get().selectAlgorithm(found);
+      };
+      if (get().catalog.length === 0) void get().loadCatalog().then(select);
+      else select();
+    }
+    set({ algorithmDraft: { ...draft, id: Date.now() } });
+  },
+
+  consumeChatDraft: () => set({ chatDraft: null }),
+  consumeAlgorithmDraft: () => set({ algorithmDraft: null }),
 
   loadQuota: async () => {
     try {

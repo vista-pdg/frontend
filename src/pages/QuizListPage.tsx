@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Play } from 'lucide-react';
+import { ListChecks, Play } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { QuizBadge } from '@/components/quiz/QuizBadge';
 import { QuizPageShell } from '@/components/quiz/QuizPageShell';
+import { StudyQuizSection } from '@/components/quiz/StudyQuizSection';
+import { useAuth } from '@/contexts/useAuth';
 import { fetchMyQuizzes } from '@/services/quizService';
 import { formatDateTime, formatGrade, studentStateLabel } from '@/lib/quiz';
 import type { StudentQuizDto, StudentQuizListDto } from '@/types/quiz';
 
 type LoadState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: StudentQuizListDto };
 
+const outlineActionClass = 'inline-flex min-h-11 items-center justify-center gap-2 border border-border px-4 text-[13px] font-semibold hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 const actionClass = 'inline-flex min-h-11 items-center justify-center gap-2 bg-primary px-4 text-[13px] font-semibold text-primary-foreground hover:bg-primary/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-sm:w-full';
 
 function windowLine(quiz: StudentQuizDto): string {
@@ -33,13 +36,27 @@ function QuizAction({ quiz }: { quiz: StudentQuizDto }) {
   }
   if (quiz.state === 'MISSED') return <p className="text-xs text-muted-foreground">Cerrado</p>;
   const result = quiz.result;
-  return result?.gradeVisible
-    ? <p className="text-[13px]" data-cy={`quiz-grade-${quiz.id}`}>Nota <span className="font-mono font-semibold">{formatGrade(result.grade)} / 5,0</span> · {result.score} de {result.total} aciertos</p>
-    : <p className="text-[13px] text-muted-foreground" data-cy={`quiz-grade-hidden-${quiz.id}`}>El docente aún no publica la nota</p>;
+  if (!result?.gradeVisible) {
+    return <p className="text-[13px] text-muted-foreground" data-cy={`quiz-grade-hidden-${quiz.id}`}>El docente aún no publica la nota; la revisión se habilita cuando lo haga.</p>;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:justify-end">
+      <p className="text-[13px]" data-cy={`quiz-grade-${quiz.id}`}>Nota <span className="font-mono font-semibold">{formatGrade(result.grade)} / 5,0</span> · {result.score} de {result.total} aciertos</p>
+      {quiz.reviewAvailable
+        ? (
+          <Link to={`/quizzes/${quiz.id}/revision`} data-cy={`quiz-review-${quiz.id}`} className={`${outlineActionClass} max-sm:w-full`}>
+            <ListChecks className="size-4" aria-hidden="true" />Revisar
+          </Link>
+        )
+        : <p className="text-xs text-muted-foreground" data-cy={`quiz-review-pending-${quiz.id}`}>Revisión desde el cierre · {formatDateTime(quiz.closesAt)}</p>}
+    </div>
+  );
 }
 
-/** HU-34 · Lista de quizzes del curso del estudiante. */
+/** HU-34 · Lista de quizzes del curso del estudiante; HU-35 · revisión y quizzes de estudio. */
 export function QuizListPage() {
+  const { roles } = useAuth();
+  const isStudent = roles.includes('STUDENT');
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
 
@@ -99,6 +116,7 @@ export function QuizListPage() {
           })}
         </ul>
       )}
+      {isStudent && <StudyQuizSection />}
     </QuizPageShell>
   );
 }

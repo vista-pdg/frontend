@@ -174,6 +174,28 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // HU-35: la pregunta de un quiz deja su escenario escrito aquí, sin enviarlo. El texto va al DOM
+  // (como lo que se teclea) y el borrador se consume para que no reaparezca en otra pantalla.
+  const chatDraft = useGraphStore((s) => s.chatDraft);
+  const consumeChatDraft = useGraphStore((s) => s.consumeChatDraft);
+  const [draftSeen, setDraftSeen] = useState(0);
+  const [draftNote, setDraftNote] = useState<string | null>(null);
+  if (chatDraft && chatDraft.id !== draftSeen) {
+    setDraftSeen(chatDraft.id);
+    setHasText(chatDraft.text.trim().length > 0);
+    setDraftNote(chatDraft.note ?? null);
+  }
+  useEffect(() => {
+    if (!chatDraft) return;
+    const field = textareaRef.current;
+    if (field) {
+      field.value = chatDraft.text;
+      field.focus({ preventScroll: true });
+      field.setSelectionRange(field.value.length, field.value.length);
+    }
+    consumeChatDraft();
+  }, [chatDraft, consumeChatDraft]);
+
   /** Escribe en el campo desde fuera (una sugerencia) sin devolverle el gobierno a React. */
   function fillInput(text: string) {
     const field = textareaRef.current;
@@ -206,6 +228,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   async function submit() {
     const prompt = (textareaRef.current?.value ?? '').trim();
     if (!prompt || loading || assistantBlocked) return;
+    setDraftNote(null);
     fillInput('');
     await sendPrompt(prompt);
     textareaRef.current?.focus();
@@ -411,6 +434,12 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
             </span>
           </div>
         </div>
+      )}
+
+      {draftNote && (
+        <p role="status" data-cy="chat-draft-note" className="border-t border-border px-3 pt-2.5 text-[11px] leading-[1.4] text-primary-light shrink-0">
+          {draftNote}
+        </p>
       )}
 
       {/* Input */}

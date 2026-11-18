@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/http';
-import { GENERATION_RETRY_DELAYS_MS, generationFailure } from '@/lib/quiz';
+import { GENERATION_RETRY_DELAYS_MS, KEEPS_BANK, generationFailure } from '@/lib/quiz';
 import { generateBankBatch } from '@/services/quizService';
+import type { GenerateBatchResponse } from '@/types/quiz';
 
 export type BankGeneration =
   | { status: 'idle' }
@@ -35,8 +36,16 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
  * <p>Un banco de 60 preguntas son 15 o más peticiones seguidas; un corte breve de red o un 503 del
  * modelo en una sola de ellas no debe detenerlo todo. Esos fallos se reintentan solos con espera
  * creciente, y solo si persisten se muestra el error con su causa.
+ *
+ * <p>HU-35: los quizzes de estudio generan igual, con su propio endpoint (`request`) y su propio
+ * texto de lo que se conserva (`keeps`).
  */
-export function useBankGeneration(quizId: number | null, onProgress: (progress: BankProgress) => void) {
+export function useBankGeneration(
+  quizId: number | null,
+  onProgress: (progress: BankProgress) => void,
+  request: (id: number, signal: AbortSignal) => Promise<GenerateBatchResponse> = generateBankBatch,
+  keeps: string = KEEPS_BANK,
+) {
   const [state, setState] = useState<BankGeneration>({ status: 'idle' });
   const controller = useRef<AbortController | null>(null);
   const notify = useRef(onProgress);
@@ -53,7 +62,7 @@ export function useBankGeneration(quizId: number | null, onProgress: (progress: 
     try {
       for (;;) {
         try {
-          const batch = await generateBankBatch(id, run.signal);
+          const batch = await request(id, run.signal);
           if (run.signal.aborted) return;
           if (failures > 0) setState({ status: 'running' });
           failures = 0;
@@ -66,8 +75,8 @@ export function useBankGeneration(quizId: number | null, onProgress: (progress: 
         } catch (error) {
           if (run.signal.aborted) return;
           const failure = error instanceof ApiError
-            ? generationFailure(error.status, error.message)
-            : generationFailure(undefined);
+            ? generationFailure(error.status, error.message, error.code, keeps)
+            : generationFailure(undefined, undefined, undefined, keeps);
           if (!failure.retryable || failures >= GENERATION_RETRY_DELAYS_MS.length) {
             return setState({ status: 'error', message: failure.message });
           }
@@ -80,7 +89,7 @@ export function useBankGeneration(quizId: number | null, onProgress: (progress: 
     } finally {
       if (controller.current === run) controller.current = null;
     }
-  }, [quizId]);
+  }, [quizId, request, keeps]);
 
   const pause = useCallback(() => {
     controller.current?.abort();

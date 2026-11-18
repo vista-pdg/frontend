@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/useAuth';
 import { Separator } from '@/components/ui/separator';
 import { ThemeToggle } from './ThemeToggle';
 import { navigationFamily } from '@/lib/workContext';
+import { tutorialSteps } from '@/lib/tutorialSteps';
 
 interface SubItem {
   subtype: string;
@@ -70,12 +71,29 @@ interface AppSidebarProps {
   examMode?: boolean;
 }
 
+function reducedMotion() {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 export function AppSidebar({ tutorialStep = null, onTutorial, examMode = false }: AppSidebarProps) {
   const [pinned, setPinned] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [keyboardFocus, setKeyboardFocus] = useState(false);
-  const collapsed = tutorialStep === null ? !pinned && !hovered && !keyboardFocus && !themeMenuOpen : tutorialStep !== 0;
+  const { user, isAdmin, isTeacher, logout, roles } = useAuth();
+  const tutorialSidebar = tutorialStep !== null && Boolean(tutorialSteps(roles)[tutorialStep]?.sidebar);
+  const collapsed = tutorialStep === null ? !pinned && !hovered && !keyboardFocus && !themeMenuOpen : !tutorialSidebar;
+  /**
+   * HU-35 · CA-9: al expandirse, los botones de demo nacen en el borde derecho del carril de 64 px
+   * —justo donde entra el cursor—, toman su hover amarillo y se deslizan hasta su sitio dejando una
+   * estela. Hasta que el ancho termina de animarse no admiten puntero y no se ven.
+   */
+  const [wasCollapsed, setWasCollapsed] = useState(collapsed);
+  const [settled, setSettled] = useState(!collapsed);
+  if (wasCollapsed !== collapsed) {
+    setWasCollapsed(collapsed);
+    setSettled(!collapsed && reducedMotion());
+  }
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set(['tree']));
 
   const activeStructureType = useGraphStore((s) => s.activeStructureType);
@@ -84,7 +102,6 @@ export function AppSidebar({ tutorialStep = null, onTutorial, examMode = false }
   const meta = useGraphStore((s) => s.meta);
   const openAlgorithmDemo = useGraphStore((s) => s.openAlgorithmDemo);
 
-  const { user, isAdmin, isTeacher, logout } = useAuth();
 
   function toggleExpand(type: string) {
     setExpandedTypes((prev) => {
@@ -126,6 +143,10 @@ export function AppSidebar({ tutorialStep = null, onTutorial, examMode = false }
       onClick={() => setKeyboardFocus(false)}
       onFocus={event => { if (event.target.matches(':focus-visible')) setKeyboardFocus(true); }}
       onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setKeyboardFocus(false); }}
+      onTransitionEnd={event => {
+        if (event.target === event.currentTarget && event.propertyName === 'width' && !collapsed) setSettled(true);
+      }}
+      data-settled={settled}
       onKeyDown={event => {
         if (event.key === 'Escape') {
           event.currentTarget.querySelector<HTMLButtonElement>('[data-cy=sidebar-toggle]')?.focus();
@@ -203,7 +224,7 @@ export function AppSidebar({ tutorialStep = null, onTutorial, examMode = false }
                     data-cy={`demo-${type}-${demo.subtype}`}
                     title={demo.title}
                     aria-label={demo.title}
-                    className="flex items-center justify-center size-7 mr-1 text-muted-foreground hover:text-annotation-yellow hover:bg-yellow-main/10 transition-colors duration-150 shrink-0 border border-transparent hover:border-yellow-main/30"
+                    className={cn('flex items-center justify-center size-7 mr-1 text-muted-foreground hover:text-annotation-yellow hover:bg-yellow-main/10 transition-[color,background-color,border-color,opacity] duration-150 shrink-0 border border-transparent hover:border-yellow-main/30', !settled && 'pointer-events-none opacity-0')}
                   >
                     <FlaskConical className="size-3.5" />
                   </button>
@@ -237,7 +258,7 @@ export function AppSidebar({ tutorialStep = null, onTutorial, examMode = false }
                               data-cy={`demo-${type}-${sub.subtype}`}
                               title={`Demo: ${sub.label} ${sub.demoOp === 'inorder' ? 'recorrido inorden' : 'inserción'}`}
                               aria-label={`Demo de ${sub.label}`}
-                              className="flex items-center justify-center size-7 text-muted-foreground hover:text-annotation-yellow hover:bg-yellow-main/10 transition-colors duration-150 shrink-0 border border-transparent hover:border-yellow-main/30"
+                              className={cn('flex items-center justify-center size-7 text-muted-foreground hover:text-annotation-yellow hover:bg-yellow-main/10 transition-[color,background-color,border-color,opacity] duration-150 shrink-0 border border-transparent hover:border-yellow-main/30', !settled && 'pointer-events-none opacity-0')}
                             >
                               <FlaskConical className="size-3.5" />
                             </button>

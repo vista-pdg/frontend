@@ -1,6 +1,7 @@
 import http from '@/lib/http';
 import type {
   AttemptDto,
+  AttemptReviewDto,
   CreateQuizRequest,
   GenerateBatchResponse,
   IntegrityEventType,
@@ -38,6 +39,12 @@ export async function answerQuestion(
   const { data } = await http.put<AttemptDto>(`/quizzes/${quizId}/attempt/answers/${position}`, {
     selectedOption,
   });
+  return data;
+}
+
+/** HU-35: revisión de solo lectura; el servidor responde 409 mientras no se habilite. */
+export async function fetchAttemptReview(quizId: number, signal?: AbortSignal): Promise<AttemptReviewDto> {
+  const { data } = await http.get<AttemptReviewDto>(`/quizzes/${quizId}/attempt/review`, { signal });
   return data;
 }
 

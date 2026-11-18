@@ -121,6 +121,22 @@ export interface AttemptResultDto {
 
 export type StudentQuizState = 'UPCOMING' | 'OPEN' | 'IN_PROGRESS' | 'FINISHED' | 'MISSED';
 
+/**
+ * Cómo reproducir el escenario en VISTA (HU-35). `chatPrompt` nulo: el chat no construye la misma
+ * estructura (ordenamiento, heapify); `values` nulo: el tema se ejecuta sobre el lienzo.
+ */
+export interface VistaSetup {
+  chatPrompt: string | null;
+  structureType: string | null;
+  structureSubtype: string | null;
+  /** Clave del catálogo `type/subtype/operation`. */
+  algorithm: string;
+  values: number[] | null;
+  argument: number | null;
+  /** Etiqueta del nodo inicial de los recorridos de grafos. */
+  start: string | null;
+}
+
 export interface StudentQuizDto {
   id: number;
   title: string;
@@ -132,6 +148,8 @@ export interface StudentQuizDto {
   state: StudentQuizState;
   deadline: string | null;
   result: AttemptResultDto | null;
+  /** HU-35: finalizado, con nota visible y con el quiz ya cerrado. */
+  reviewAvailable: boolean;
 }
 
 /** `courseCode` nulo: la cuenta no está matriculada y no puede presentar quizzes. */
@@ -149,6 +167,8 @@ export interface AttemptQuestionDto {
   statement: string;
   options: string[];
   selectedOption: number | null;
+  /** Nula en preguntas creadas antes de HU-35. */
+  setup: VistaSetup | null;
 }
 
 export interface AttemptDto {
@@ -174,3 +194,79 @@ export type IntegrityEventType =
   | 'CONTEXT_MENU'
   | 'PRINT'
   | 'SHORTCUT';
+
+/** Revisión de solo lectura (HU-35). Opciones en el orden en que el estudiante las vio. */
+export interface ReviewQuestionDto {
+  position: number;
+  topicLabel: string;
+  scenario: string;
+  statement: string;
+  options: string[];
+  selectedOption: number | null;
+  correctOption: number;
+  outcome: AnswerOutcome;
+  explanation: string | null;
+}
+
+export interface AttemptReviewDto {
+  quizId: number;
+  title: string;
+  status: 'SUBMITTED' | 'EXPIRED';
+  finishedAt: string;
+  score: number | null;
+  total: number;
+  grade: number | null;
+  questions: ReviewQuestionDto[];
+}
+
+// ── Quizzes de estudio (HU-35), de `com.vista.pdg.quiz.dto.StudyQuizDtos` ──
+
+export interface CreateStudyQuizRequest {
+  title: string;
+  topics: string[];
+  questionCount: number;
+}
+
+export interface StudyQuizSummaryDto {
+  id: number;
+  title: string;
+  topics: string[];
+  questionCount: number;
+  generated: number;
+  answered: number;
+  correct: number;
+  hintsUsed: number;
+  solutionsShown: number;
+  createdAt: string;
+}
+
+/** La pista llega solo si se pidió; la correcta y la justificación, solo con la pregunta resuelta. */
+export interface StudyQuestionDto {
+  position: number;
+  topicLabel: string;
+  scenario: string;
+  statement: string;
+  options: string[];
+  setup: VistaSetup | null;
+  selectedOption: number | null;
+  hintShown: boolean;
+  hint: string | null;
+  solutionShown: boolean;
+  correctOption: number | null;
+  explanation: string | null;
+}
+
+export interface StudyQuizDto {
+  quiz: StudyQuizSummaryDto;
+  questions: StudyQuestionDto[];
+}
+
+export interface TutorTurn {
+  role: 'student' | 'tutor';
+  text: string;
+}
+
+export interface TutorReplyDto {
+  reply: string;
+  remaining: number;
+}

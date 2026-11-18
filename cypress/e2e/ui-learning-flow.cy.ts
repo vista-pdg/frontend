@@ -27,7 +27,8 @@ describe('Flujo único de aprendizaje', () => {
     });
     cy.get('[data-cy=tutorial-open]').click();
     cy.get('[data-cy=tutorial-prev]').should('be.disabled');
-    for (let i = 0; i < 5; i++) cy.get('[data-cy=tutorial-next]').click();
+    // HU-35: la guía del estudiante suma dos pasos de Quizzes (6 + 2).
+    for (let i = 0; i < 7; i++) cy.get('[data-cy=tutorial-next]').click();
     cy.get('[data-cy=tutorial-next]').should('contain', 'Terminar').click();
     cy.get('[data-cy=tutorial-open]').should('have.focus');
     cy.get('[data-cy=nav-tree-avl]').should('have.attr', 'aria-pressed', 'true');

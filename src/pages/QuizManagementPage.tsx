@@ -9,8 +9,9 @@ import { MicroLabel, QuizPageShell, quizControlClass } from '@/components/quiz/Q
 import { useAuth } from '@/contexts/useAuth';
 import { useBankGeneration } from '@/hooks/useBankGeneration';
 import { ApiError } from '@/lib/http';
-import { bankSize, formatDateTime, groupTopics, phaseLabel, toCreateRequest, toLocalInput, validateQuizForm, type QuizFormErrors, type QuizFormValues } from '@/lib/quiz';
-import { cn } from '@/lib/utils';
+import { bankSize, fieldDescribedBy, formatDateTime, phaseLabel, toCreateRequest, toLocalInput, validateQuizForm, type QuizFormErrors, type QuizFormValues } from '@/lib/quiz';
+import { TopicPicker } from '@/components/quiz/TopicPicker';
+import { QuizField } from '@/components/quiz/QuizField';
 import { createQuiz, fetchManagedCourses, fetchManagedQuizzes, fetchQuizTopics } from '@/services/quizService';
 import type { ManagedCourseDto, QuizSummaryDto, QuizTopicDto } from '@/types/quiz';
 
@@ -33,21 +34,6 @@ function emptyForm(course: ManagedCourseDto | undefined): QuizFormValues {
     closesAt: toLocalInput(closes),
     showGrade: true,
   };
-}
-
-function Field({ id, label, error, hint, children }: { id: string; label: string; error?: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <label htmlFor={id} className="mb-2 block text-xs font-medium">{label}</label>
-      {children}
-      {hint && !error && <p id={`${id}-hint`} className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{hint}</p>}
-      {error && <p id={`${id}-error`} role="alert" data-cy={`${id}-error`} className="mt-2 text-xs text-foreground">{error}</p>}
-    </div>
-  );
-}
-
-function describedBy(id: string, error?: string, hint?: string) {
-  return error ? `${id}-error` : hint ? `${id}-hint` : undefined;
 }
 
 function NewQuizForm({ courses, topics, initialCourse, onCancel }: {
@@ -119,18 +105,18 @@ function NewQuizForm({ courses, topics, initialCourse, onCancel }: {
   }
 
   const input = (field: 'questionsPerStudent' | 'studentCount' | 'timeLimitMinutes', label: string, hint?: string) => (
-    <Field id={`quiz-${field}`} label={label} error={errors[field]} hint={hint}>
+    <QuizField id={`quiz-${field}`} label={label} error={errors[field]} hint={hint}>
       <input id={`quiz-${field}`} name={field} data-cy={`quiz-${field}`} type="text" inputMode="numeric" autoComplete="off" className={quizControlClass}
         value={values[field]} onChange={e => set(field, e.target.value)} disabled={locked}
-        aria-invalid={!!errors[field]} aria-describedby={describedBy(`quiz-${field}`, errors[field], hint)} />
-    </Field>
+        aria-invalid={!!errors[field]} aria-describedby={fieldDescribedBy(`quiz-${field}`, errors[field], hint)} />
+    </QuizField>
   );
   const dateInput = (field: 'opensAt' | 'closesAt', label: string) => (
-    <Field id={`quiz-${field}`} label={label} error={errors[field]}>
+    <QuizField id={`quiz-${field}`} label={label} error={errors[field]}>
       <input id={`quiz-${field}`} name={field} data-cy={`quiz-${field}`} type="datetime-local" className={quizControlClass}
         value={values[field]} onChange={e => set(field, e.target.value)} disabled={locked}
-        aria-invalid={!!errors[field]} aria-describedby={describedBy(`quiz-${field}`, errors[field])} />
-    </Field>
+        aria-invalid={!!errors[field]} aria-describedby={fieldDescribedBy(`quiz-${field}`, errors[field])} />
+    </QuizField>
   );
 
   return (
@@ -138,44 +124,21 @@ function NewQuizForm({ courses, topics, initialCourse, onCancel }: {
       <form ref={formRef} onSubmit={submit} noValidate data-cy="quiz-form" aria-label="Nuevo quiz" className="min-w-0 space-y-5">
         <h1 className="text-[20px] font-bold tracking-tight">Nuevo quiz</h1>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field id="quiz-courseCode" label="Curso" error={errors.courseCode}>
+          <QuizField id="quiz-courseCode" label="Curso" error={errors.courseCode}>
             <select id="quiz-courseCode" name="courseCode" data-cy="quiz-courseCode" className={quizControlClass} value={values.courseCode}
-              onChange={e => changeCourse(e.target.value)} disabled={locked} aria-invalid={!!errors.courseCode} aria-describedby={describedBy('quiz-courseCode', errors.courseCode)}>
+              onChange={e => changeCourse(e.target.value)} disabled={locked} aria-invalid={!!errors.courseCode} aria-describedby={fieldDescribedBy('quiz-courseCode', errors.courseCode)}>
               {courses.map(c => <option key={c.code} value={c.code}>{c.code} · {c.termCode}</option>)}
             </select>
-          </Field>
-          <Field id="quiz-title" label="Título" error={errors.title}>
+          </QuizField>
+          <QuizField id="quiz-title" label="Título" error={errors.title}>
             <input id="quiz-title" name="title" data-cy="quiz-title" type="text" autoComplete="off" maxLength={160} className={quizControlClass}
               value={values.title} onChange={e => set('title', e.target.value)} disabled={locked}
-              aria-invalid={!!errors.title} aria-describedby={describedBy('quiz-title', errors.title)} />
-          </Field>
+              aria-invalid={!!errors.title} aria-describedby={fieldDescribedBy('quiz-title', errors.title)} />
+          </QuizField>
         </div>
 
-        <fieldset className="min-w-0 space-y-3" aria-describedby={errors.topics ? 'quiz-topics-error' : 'quiz-topics-hint'}>
-          <legend className="text-xs font-medium">Temas del quiz</legend>
-          <p id="quiz-topics-hint" className="text-[11px] leading-relaxed text-muted-foreground">
-            Elige las estructuras y algoritmos de VISTA sobre los que se generarán las preguntas.
-          </p>
-          {groupTopics(topics).map(group => (
-            <div key={group.family} className="space-y-2 border border-border p-3">
-              <MicroLabel>{group.label}</MicroLabel>
-              <div className="flex flex-wrap gap-2">
-                {group.topics.map(topic => {
-                  const checked = values.topics.includes(topic.key);
-                  return (
-                    <label key={topic.key} title={topic.description}
-                      className={cn('flex min-h-11 cursor-pointer items-center gap-2 border px-2.5 text-xs has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring',
-                        checked ? 'border-primary bg-primary/12' : 'border-border hover:bg-muted', locked && 'cursor-default opacity-60')}>
-                      <input type="checkbox" className="size-4 accent-primary" data-cy={`quiz-topic-${topic.key}`} checked={checked} disabled={locked} onChange={() => toggleTopic(topic.key)} />
-                      {topic.label}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-          {errors.topics && <p id="quiz-topics-error" role="alert" data-cy="quiz-topics-error" className="text-xs text-foreground">{errors.topics}</p>}
-        </fieldset>
+        <TopicPicker topics={topics} selected={values.topics} onToggle={toggleTopic} disabled={locked} error={errors.topics}
+          legend="Temas del quiz" hint="Elige las estructuras y algoritmos de VISTA sobre los que se generarán las preguntas." />
 
         <div className="grid gap-4 sm:grid-cols-3">
           {input('questionsPerStudent', 'Preguntas por estudiante')}

@@ -100,6 +100,24 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
   const pendingRef = useRef<symbol | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // HU-35: otra pantalla (la pregunta de un quiz) deja el algoritmo y sus entradas preparados. Se
+  // adoptan al renderizar, una vez por borrador, y el borrador se consume para no reaparecer.
+  const algorithmDraft = useGraphStore((s) => s.algorithmDraft);
+  const consumeAlgorithmDraft = useGraphStore((s) => s.consumeAlgorithmDraft);
+  const [draftSeen, setDraftSeen] = useState(0);
+  const [draftNote, setDraftNote] = useState<{ key: string; text: string } | null>(null);
+  if (algorithmDraft && algorithmDraft.id !== draftSeen) {
+    const { key, values, argument, source, note } = algorithmDraft;
+    setDraftSeen(algorithmDraft.id);
+    if (values) setValuesByKey((m) => ({ ...m, [key]: values.join(', ') }));
+    if (argument !== null) setArgumentsByKey((m) => ({ ...m, [key]: String(argument) }));
+    setSources((m) => ({ ...m, [key]: source }));
+    setDraftNote({ key, text: note });
+  }
+  useEffect(() => {
+    if (algorithmDraft) consumeAlgorithmDraft();
+  }, [algorithmDraft, consumeAlgorithmDraft]);
+
   // El catálogo se pide al abrir el panel: es del servidor y no cambia con el modo (CA-4).
   useEffect(() => {
     if (open && catalog.length === 0) void loadCatalog();
@@ -356,6 +374,9 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                     className="w-full bg-card/60 border border-primary/30 text-foreground placeholder:text-muted-foreground text-[13px] px-3 py-2 focus:outline-none focus:border-primary/70 transition-colors duration-150" />
                   <p id="algo-argument-help" className="text-[11px] text-muted-foreground">Entero de 32 bits; se aplica sobre la estructura del lienzo.</p>
                 </>
+              )}
+              {draftNote && draftNote.key === selectedKey && (
+                <p role="status" className="text-[11px] leading-relaxed text-primary-light" data-cy="algo-draft-note">{draftNote.text}</p>
               )}
               {error && (
                 <div id="algo-error" role="alert" className="flex items-center gap-1.5 text-[11px] text-destructive dark:text-red-400" data-cy="algo-error">

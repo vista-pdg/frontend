@@ -11,6 +11,9 @@ import { QuizListPage } from './pages/QuizListPage.tsx';
 import { QuizExamPage } from './pages/QuizExamPage.tsx';
 import { QuizManagementPage } from './pages/QuizManagementPage.tsx';
 import { QuizDetailPage } from './pages/QuizDetailPage.tsx';
+import { QuizReviewPage } from './pages/QuizReviewPage.tsx';
+import { StudyQuizNewPage } from './pages/StudyQuizNewPage.tsx';
+import { StudyQuizPage } from './pages/StudyQuizPage.tsx';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 import { RedirectIfAuthenticated, RequireAuth, RequireRole } from './routes/guards.tsx';
 
@@ -60,6 +63,34 @@ createRoot(document.getElementById('root')!).render(
             element={
               <RequireAuth>
                 <QuizExamPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/quizzes/:quizId/revision"
+            element={
+              <RequireAuth>
+                <QuizReviewPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/quizzes/estudio/nuevo"
+            element={
+              <RequireAuth>
+                <RequireRole role="STUDENT">
+                  <StudyQuizNewPage />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/quizzes/estudio/:id"
+            element={
+              <RequireAuth>
+                <RequireRole role="STUDENT">
+                  <StudyQuizPage />
+                </RequireRole>
               </RequireAuth>
             }
           />

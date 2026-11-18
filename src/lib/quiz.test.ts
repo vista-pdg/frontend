@@ -3,6 +3,7 @@ import {
   answeredCount, bankSize, blockedShortcut, clockOffset, formatDateTime, formatGrade, formatRemaining, groupTopics,
   phaseLabel, remainingMs, resultStatusLabel, studentStateLabel, toCreateRequest, toLocalInput, validateQuizForm,
   answerMark, generationFailure, GENERATION_RETRY_DELAYS_MS, type QuizFormValues,
+  estimatedBatches, fieldDescribedBy, KEEPS_STUDY, optionMark, studyProgressLine, studyState, studySummary, validateStudyForm,
 } from './quiz';
 
 const NOW = new Date('2026-11-17T12:00:00');
@@ -54,7 +55,7 @@ describe('reloj del intento', () => {
   });
 
   it('cuenta solo las preguntas respondidas', () => {
-    const question = { position: 1, topicLabel: '', scenario: '', statement: '', options: [] };
+    const question = { position: 1, topicLabel: '', scenario: '', statement: '', options: [], setup: null };
     expect(answeredCount({ questions: [{ ...question, selectedOption: 0 }, { ...question, selectedOption: null }] })).toBe(1);
   });
 });
@@ -148,5 +149,67 @@ describe('fallos al generar un lote', () => {
     });
     expect(generationFailure(409).message).toContain('(error 409)');
     expect(generationFailure(500)).toEqual({ retryable: false, message: 'No se pudo generar el lote (error 500). El banco conserva lo generado.' });
+  });
+});
+
+describe('quizzes de estudio y revisión (HU-35)', () => {
+  it('cuenta los lotes con el mismo reparto por tema que el servidor', () => {
+    expect(estimatedBatches(5, 2)).toBe(2);
+    expect(estimatedBatches(10, 1)).toBe(3);
+    expect(estimatedBatches(1, 3)).toBe(1);
+    expect(estimatedBatches(6, 3)).toBe(3);
+    expect(estimatedBatches(0, 2)).toBe(0);
+    expect(estimatedBatches(4, 0)).toBe(0);
+  });
+
+  it('valida el formulario con las reglas del servidor', () => {
+    expect(validateStudyForm({ title: '', topics: ['a'], questionCount: '5' })).toEqual({});
+    expect(validateStudyForm({ title: 'x'.repeat(161), topics: [], questionCount: '11' })).toEqual({
+      title: 'El título admite hasta 160 caracteres.',
+      topics: 'Selecciona al menos un tema.',
+      questionCount: 'Elige de 1 a 10 preguntas.',
+    });
+    expect(validateStudyForm({ title: '', topics: ['a'], questionCount: '2.5' }).questionCount).toBeDefined();
+  });
+
+  it('resume el avance de un quiz de estudio', () => {
+    const base = { questionCount: 5, generated: 5, answered: 3, correct: 1, hintsUsed: 1, solutionsShown: 2 };
+    expect(studyProgressLine(base)).toBe('3 de 5 respondidas · 1 acierto · 1 pista · 2 soluciones vistas');
+    expect(studyProgressLine({ ...base, correct: 2, hintsUsed: 0, solutionsShown: 1 })).toBe('3 de 5 respondidas · 2 aciertos · 1 solución vista');
+    expect(studyProgressLine({ ...base, generated: 2 })).toBe('2 de 5 generadas · la generación no ha terminado');
+    expect(studyState({ ...base, generated: 2 })).toBe('INCOMPLETE');
+    expect(studyState(base)).toBe('COMPLETE');
+    expect(studyState({ ...base, solutionsShown: 0 })).toBe('IN_PROGRESS');
+  });
+
+  it('calcula el resumen desde las preguntas', () => {
+    const q = { selectedOption: null, correctOption: null, hintShown: false, solutionShown: false };
+    expect(studySummary([
+      { ...q, selectedOption: 1, correctOption: 1, hintShown: true },
+      { ...q, selectedOption: 0, correctOption: 2 },
+      { ...q, solutionShown: true, correctOption: 3 },
+      q,
+    ])).toEqual({ answered: 2, correct: 1, hints: 1, solutions: 1, resolved: 3 });
+  });
+
+  it('marca la opción elegida y la correcta sin depender solo del color', () => {
+    expect(optionMark(1, 1, 1)).toBe('chosen-correct');
+    expect(optionMark(1, 1, 2)).toBe('chosen-wrong');
+    expect(optionMark(2, 1, 2)).toBe('correct');
+    expect(optionMark(0, 1, 2)).toBe('none');
+    expect(optionMark(0, null, null)).toBe('none');
+  });
+
+  it('una cuota agotada no se reintenta y dice qué se conserva', () => {
+    expect(generationFailure(429, 'cuota', 'DAILY_QUOTA_EXCEEDED', KEEPS_STUDY)).toEqual({
+      retryable: false,
+      message: 'Alcanzaste tu límite diario del asistente. Tu quiz conserva lo generado. Podrás completarlo después de medianoche.',
+    });
+    expect(generationFailure(503, undefined, undefined, KEEPS_STUDY).message).toContain('Tu quiz conserva lo generado.');
+    expect(generationFailure(401, undefined, undefined, KEEPS_STUDY).message).toContain('tu quiz conserva lo generado.');
+    expect(generationFailure(403, undefined, undefined, KEEPS_STUDY).message).toBe('No tienes acceso a este quiz.');
+    expect(fieldDescribedBy('x', 'e')).toBe('x-error');
+    expect(fieldDescribedBy('x', undefined, 'h')).toBe('x-hint');
+    expect(fieldDescribedBy('x')).toBeUndefined();
   });
 });
