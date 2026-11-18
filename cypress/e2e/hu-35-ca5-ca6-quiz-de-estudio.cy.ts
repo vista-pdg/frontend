@@ -101,8 +101,10 @@ describe('HU-35 · Quizzes de estudio', () => {
         by(`study-open-${body.id}`).should('contain', 'Completar').click();
         by('study-incomplete').should('contain', 'de 5 preguntas');
         by('study-complete').click();
-        by('bank-progress').should('have.attr', 'data-status', 'complete');
+        // Al completarse, el aviso de quiz incompleto (con su progreso) da paso a las 5 preguntas.
         by('study-nav-5').should('exist');
+        cy.get('[data-cy=study-incomplete]').should('not.exist');
+        by('study-summary-line').should('contain', 'de 5');
       });
     });
   });

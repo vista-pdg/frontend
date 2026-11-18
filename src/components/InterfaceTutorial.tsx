@@ -89,6 +89,12 @@ export function InterfaceTutorial({ index, onDockHeight, onStepChange, onClose }
     return () => { cancelAnimationFrame(frame); observer.disconnect(); window.removeEventListener('resize', schedule); window.removeEventListener('scroll', schedule, true); };
   }, [index, step, onDockHeight]);
 
+  // La tarjeta está oculta hasta medir su posición y un elemento oculto no recibe foco: si al abrir
+  // el foco se quedó en el diálogo, pasa a «Siguiente» cuando la tarjeta ya es visible.
+  useEffect(() => {
+    if (placement && document.activeElement === dialog.current) next.current?.focus();
+  }, [placement]);
+
   function close() {
     dialog.current?.close();
     const trigger = returnFocus.current;
