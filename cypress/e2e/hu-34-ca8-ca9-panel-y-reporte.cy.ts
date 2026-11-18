@@ -15,6 +15,7 @@ describe('HU-34 · Panel de resultados y reportes', () => {
           beginQuiz(quizId);
           answerCurrent(bank, true);
           by('quiz-next').click();
+          by('quiz-nav-2').should('have.attr', 'aria-current', 'step');
           answerCurrent(bank, true);
           by('quiz-submit').click();
           by('quiz-confirm-submit').click();

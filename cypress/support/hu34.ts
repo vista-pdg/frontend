@@ -90,17 +90,31 @@ export function beginQuiz(quizId: number) {
   by('quiz-question-panel').should('be.visible');
 }
 
-/** Elige, en la pregunta visible, la opción correcta (o una incorrecta) según el banco. */
+/**
+ * Elige, en la pregunta visible, la opción correcta (o una incorrecta) según el banco, y espera a
+ * que el servidor confirme esa respuesta: el indicador «Guardado» puede venir de la pregunta anterior.
+ */
 export function answerCurrent(bank: BankQuestion[], correct: boolean) {
-  by('quiz-scenario').invoke('text').then(scenario => {
-    by('quiz-statement').invoke('text').then(statement => {
-      const question = bank.find(q => q.scenario === scenario && q.statement === statement);
-      expect(question, 'la pregunta visible está en el banco').to.not.equal(undefined);
-      const right = question!.options[question!.correctIndex];
-      cy.get('[data-cy^="quiz-option-"]').then($options => {
-        const target = [...$options].find(option => (option.textContent === right) === correct);
-        cy.wrap(target!).find('input').check();
+  cy.get('[data-cy^="quiz-nav-"][aria-current="step"]').invoke('attr', 'data-cy').then(nav => {
+    const position = Number(nav!.replace('quiz-nav-', ''));
+    cy.intercept('PUT', `**/attempt/answers/${position}`).as(`answer-${position}`);
+    by('quiz-scenario').invoke('text').then(scenario => {
+      by('quiz-statement').invoke('text').then(statement => {
+        const question = bank.find(q => q.scenario === scenario && q.statement === statement);
+        expect(question, 'la pregunta visible está en el banco').to.not.equal(undefined);
+        const right = question!.options[question!.correctIndex];
+        cy.get('[data-cy^="quiz-option-"]').then($options => {
+          const target = [...$options].find(option => (option.textContent === right) === correct);
+          expect(target, 'opción a elegir').to.not.equal(undefined);
+          cy.wrap(target!).find('input').check();
+          cy.wrap(target!).should('have.attr', 'data-selected', 'true');
+        });
       });
+    });
+    cy.wait(`@answer-${position}`).then(({ response }) => {
+      expect(response?.statusCode, `guardado de la pregunta ${position}`).to.eq(200);
+      const saved = response!.body.questions.find((q: { position: number }) => q.position === position);
+      expect(saved.selectedOption, `respuesta ${position} en el servidor`).to.not.equal(null);
     });
   });
   by('quiz-saved').should('contain', 'Guardado');
