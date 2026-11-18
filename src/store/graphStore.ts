@@ -1,3 +1,4 @@
+import { algorithmFitsCanvas, canvasParameter } from '@/lib/algorithmCanvas';
 import { algorithmFitsContext } from '@/lib/workContext';
 import { create } from 'zustand';
 import { generateGraphWithQuota } from '@/services/graphService';
@@ -7,7 +8,7 @@ import { reportAlgorithmCompleted, reportAlgorithmProgress } from '@/services/an
 import { ApiError } from '@/lib/http';
 import type { QuotaStatus, SessionStatus } from '@/types/auth';
 import type { CodeRepresentation, Node3D, Edge3D, GraphMeta, AlgorithmStep, AlgorithmDescriptor, HighlightType } from '@/types/graph';
-import { structureFitsFamily, type EngineState, type VisualizationMode } from '@/core';
+import type { EngineState, VisualizationMode } from '@/core';
 import { chooseMode, engine, preferredMode, webglAvailable } from '@/renderers/appEngine';
 
 export interface ChatMessage {
@@ -133,10 +134,10 @@ interface GraphState extends VisualizationMirror {
   loadCatalog: () => Promise<void>;
   selectAlgorithm: (descriptor: AlgorithmDescriptor | null) => void;
   /**
-   * Ejecuta el algoritmo elegido. Los de entrada `values` reciben los valores; los de entrada
-   * `structure` recorren lo que hay en el motor (nodos y aristas actuales) desde `start`.
+   * Ejecuta el algoritmo elegido sobre el lienzo compatible o una estructura nueva con valores.
+   * `source` es explícito en el panel; `argument` añade o busca una clave en el lienzo.
    */
-  runSelectedAlgorithm: (input: { values?: number[]; start?: string; argument?: number }) => Promise<void>;
+  runSelectedAlgorithm: (input: { values?: number[]; start?: string; argument?: number; source?: 'canvas' | 'values' }) => Promise<void>;
   setCurrentStep: (index: number) => void;
   nextStep: () => void;
   prevStep: () => void;
@@ -373,14 +374,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       algorithmSubtype: subtype,
       algorithmOperation: operation,
     });
-    // La decisión de limpiar o no el lienzo depende del catálogo: BFS recorre lo que hay en el
-    // lienzo y no debe borrarlo; los que construyen su estructura arrancan de cero. Si el catálogo
-    // aún no llegó, se espera a tenerlo antes de decidir.
+    // Opening a demo only selects it. Replacing the canvas is an explicit execution choice.
     const apply = () => {
       if (revision !== get().contextRevision) return;
       const found = get().catalog.find((d) => algorithmKey(d) === key) ?? null;
-      if (!found || found.input !== 'structure') { engine.clear(); set({ canvasContext: null }); }
-      set({ selectedAlgorithm: found });
+      get().selectAlgorithm(found);
     };
     if (get().catalog.length === 0) void get().loadCatalog().then(apply);
     else apply();
@@ -417,17 +415,19 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       contextRevision: get().contextRevision + 1, loading: false, stepsLoading: false });
   },
 
-  runSelectedAlgorithm: async ({ values, start, argument }) => {
+  runSelectedAlgorithm: async ({ values, start, argument, source }) => {
     const d = get().selectedAlgorithm;
     if (!d) throw new Error('Elige un algoritmo del catálogo');
     if (!algorithmFitsContext(d, get().activeStructureType, get().activeSubtype)) throw new Error('Algoritmo incompatible con el contexto');
+    const { structure, meta } = engine.getState();
+    const canvasContext = get().canvasContext ?? meta;
+    const fits = algorithmFitsCanvas(d, structure, canvasContext);
+    const useCanvas = source === 'canvas' || (source !== 'values' && values === undefined && (fits || d.input === 'structure'));
+    if (useCanvas && !fits) throw new Error('El lienzo no es compatible con este algoritmo. Genera una estructura compatible o usa valores.');
+    if (useCanvas && canvasParameter(d) && !Number.isInteger(argument)) throw new Error('Ingresa un valor entero para la operación sobre el lienzo.');
     const revision = get().contextRevision;
     set({ stepsLoading: true });
     try {
-      const { structure } = engine.getState();
-      // Con entrada `structure` se envía lo que hay en el lienzo; si no hay nada y llegan valores,
-      // el algoritmo puede construir su estructura con ellos (inorden → BST).
-      const useCanvas = d.input === 'structure' && structureFitsFamily(d.family, structure);
       const res = await runAlgorithm({
         type: d.type,
         subtype: d.subtype,
@@ -444,7 +444,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
       }
       engine.loadTrace(res.steps, res.code ?? null, res.representations ?? []);
       set({ stepsLoading: false, reportedTrace: null, activeExecutionId: res.executionId ?? null,
-        reportedProgress: 0, canvasContext: { type: d.type, subtype: d.subtype } });
+        reportedProgress: 0, canvasContext: useCanvas ? canvasContext : { type: d.type, subtype: d.subtype } });
       get().reportCompletionIfFinished();
     } catch (err: unknown) {
       if (revision !== get().contextRevision) return;

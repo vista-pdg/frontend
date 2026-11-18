@@ -12,18 +12,8 @@ export interface RendererSnapshot {
   labels: Record<string, string>;
 }
 
-interface VistaWindow extends Window {
-  __vista?: {
-    engine: {
-      getState(): { mode: '2D' | '3D'; stepIndex: number; trace: unknown[]; structure: { nodes: unknown[] } };
-    };
-    registry: { get(id: '2D' | '3D'): { snapshot(): RendererSnapshot } | undefined };
-    webglAvailable: boolean;
-  };
-}
-
 export function snapshotOf(win: Window, mode: '2D' | '3D'): RendererSnapshot {
-  const v = (win as VistaWindow).__vista;
+  const v = win.__vista;
   expect(v, 'window.__vista expuesto').to.exist;
   const r = v!.registry.get(mode);
   expect(r, `adaptador ${mode} registrado`).to.exist;
@@ -31,13 +21,14 @@ export function snapshotOf(win: Window, mode: '2D' | '3D'): RendererSnapshot {
 }
 
 export function engineState(win: Window) {
-  return (win as VistaWindow).__vista!.engine.getState();
+  return win.__vista!.engine.getState();
 }
 
 /** Abre la demo AVL desde la barra lateral y genera el rastro con los valores dados. */
 export function loadAvlDemo(values: string) {
   openSidebar();
   cy.get('[data-cy=demo-tree-avl]').click();
+  cy.get('[data-cy=algo-source-values]').check();
   cy.get('[data-cy=algo-values]').should('be.visible').clear().type(values);
   cy.intercept('POST', '/api/algorithm/steps').as('steps');
   cy.get('[data-cy=algo-generate]').click();

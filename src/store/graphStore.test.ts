@@ -65,7 +65,7 @@ it('sends a scalar and the real canvas to a list operation after sorting', async
   useGraphStore.getState().setActiveStructureType('linked-list', 'circular');
   const descriptor: AlgorithmDescriptor = { type: 'linked-list', subtype: 'simple', operation: 'search', family: 'linked-list', label: 'Buscar', description: '', input: 'structure', parameter: 'target' };
   const node = { id: 'original', label: '7', x: 3, y: 2, z: 1, depth: 0, parent: null, properties: { sequence: true, index: 0 } };
-  engine.loadStructure([node], [], null);
+  engine.loadStructure([node], [], { type: 'linked-list', subtype: 'circular', nodeCount: 1, edgeCount: 0, computedProperties: {} });
   useGraphStore.getState().selectAlgorithm(descriptor);
   vi.mocked(runAlgorithm).mockResolvedValue({ error: false, message: null, steps: [] });
   await useGraphStore.getState().runSelectedAlgorithm({ argument: 7 });
@@ -115,5 +115,50 @@ describe('HU-06 correlated algorithm progress', () => {
     useGraphStore.getState().clearAll();
     useGraphStore.getState().nextStep();
     expect(reportAlgorithmProgress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('canvas or values source', () => {
+  const node = { id: 'original', label: '7', x: 3, y: 2, z: 1, depth: 0, parent: null, properties: { index: 0, role: 'top' } };
+  beforeEach(() => {
+    useGraphStore.getState().clearAll(); vi.clearAllMocks();
+    engine.loadStructure([node], [], { type: 'stack', subtype: 'simple', nodeCount: 1, edgeCount: 0, computedProperties: {} });
+    vi.mocked(runAlgorithm).mockResolvedValue({ error: false, message: null, steps: [] });
+  });
+
+  it('opening a values demo preserves the original figure', () => {
+    useGraphStore.setState({ catalog: [pop] });
+    useGraphStore.getState().openAlgorithmDemo('stack', 'simple', 'pop');
+    expect(engine.getState().structure.nodes).toEqual([node]);
+  });
+
+  it('selecting a demo detaches the previous trace without clearing the current figure', () => {
+    useGraphStore.getState().setActiveStructureType('stack');
+    useGraphStore.setState({ catalog: [pop], canvasContext: { type: 'stack', subtype: 'simple' } });
+    engine.loadTrace([{ index: 0, title: 'Previous', description: '', highlightType: 'initial', highlightedNodeIds: [], rotationType: null, nodes: [node], edges: [] }], ['previous code']);
+    useGraphStore.getState().openAlgorithmDemo('stack', 'simple', 'pop');
+    expect(engine.getState().trace).toEqual([]);
+    expect(engine.getState().structure.nodes).toEqual([node]);
+    expect(useGraphStore.getState().selectedAlgorithm).toEqual(pop);
+  });
+
+  it('uses the compatible canvas by default and excludes preset values', async () => {
+    useGraphStore.getState().selectAlgorithm(pop);
+    await useGraphStore.getState().runSelectedAlgorithm({ source: 'canvas', values: [99] });
+    expect(runAlgorithm).toHaveBeenCalledWith(expect.objectContaining({ nodes: [node], edges: [], values: undefined }));
+  });
+
+  it('creates with values only when explicitly selected', async () => {
+    useGraphStore.getState().selectAlgorithm(pop);
+    await useGraphStore.getState().runSelectedAlgorithm({ source: 'values', values: [99] });
+    expect(runAlgorithm).toHaveBeenCalledWith(expect.objectContaining({ values: [99], nodes: undefined, edges: undefined }));
+  });
+
+  it('rejects a mismatched canvas even when navigation matches the algorithm', async () => {
+    useGraphStore.getState().setActiveStructureType('tree', 'avl');
+    useGraphStore.getState().selectAlgorithm(avl);
+    await expect(useGraphStore.getState().runSelectedAlgorithm({ source: 'canvas', argument: 3 })).rejects.toThrow(/compatible/);
+    expect(runAlgorithm).not.toHaveBeenCalled();
+    expect(engine.getState().structure.nodes).toEqual([node]);
   });
 });

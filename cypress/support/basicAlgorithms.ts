@@ -2,6 +2,7 @@
 import { SEEDED } from './commands';
 import { openSidebar } from './navigation';
 import { goToLastStep, nodeBoxes } from './hu19';
+import { verifyJavaCode } from './javaCode';
 import type { Node3D, Edge3D, StepsResponse } from '../../src/types/graph';
 
 const node=(id:string,value:number,x=0,parent:string|null=null,properties:Record<string,unknown>={}):Node3D=>({id,label:String(value),x,y:0,z:0,depth:parent?1:0,parent,properties});
@@ -65,10 +66,10 @@ export function verifyBasicAlgorithms(criterion: 'trees' | 'heap-linear' | 'list
   });
   for(const s of selected) it(`${s.type}/${s.subtype}/${s.op}: correct result and persistent trace in 2D/3D`,()=>{
     cy.get(`[data-cy=${s.nav}]`).click();
-    if(s.scene) cy.window().then(w=>w.__vista!.engine.loadStructure(s.scene!.nodes,s.scene!.edges,null));
+    if(s.scene) cy.window().then(w=>w.__vista!.engine.loadStructure(s.scene!.nodes,s.scene!.edges,{type:s.type,subtype:s.subtype,nodeCount:s.scene!.nodes.length,edgeCount:s.scene!.edges.length,computedProperties:{}}));
     cy.get('[data-cy=algorithm-toggle]').click();
     cy.get(`[data-cy=algo-item-${s.type}-${s.subtype}-${s.op}]`).scrollIntoView().click();
-    if(s.values) cy.get('[data-cy=algo-values]').clear().type(s.values);
+    if(s.values) { cy.get('[data-cy=algo-source-values]').check(); cy.get('[data-cy=algo-values]').clear().type(s.values); }
     if(s.argument!==undefined) cy.get('[data-cy=algo-argument]').clear().type(String(s.argument));
     cy.intercept('POST','/api/algorithm/steps').as('steps');
     cy.get('[data-cy=algo-generate]').scrollIntoView().click();
@@ -79,6 +80,7 @@ export function verifyBasicAlgorithms(criterion: 'trees' | 'heap-linear' | 'list
       if(s.argument!==undefined) expect(request.body.argument).to.eq(s.argument);
       if(s.scene) expect(request.body.nodes.map((n:Node3D)=>n.id)).to.deep.eq(s.scene.nodes.map(n=>n.id));
       for(const step of body.steps!) expect(step.line).to.be.within(1,body.code!.length);
+      verifyJavaCode(body);
     });
     cy.get('[data-cy=algorithm-panel] button[aria-label="Cerrar panel"]').click();
     goToLastStep();

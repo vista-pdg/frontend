@@ -12,7 +12,7 @@ import { useFloatingPanel } from '@/hooks/useFloatingPanel';
  * hay nada que sincronizar. Sólo se monta cuando el rastro trae código; las secciones de estado
  * sólo cuando el paso trae datos.
  */
-export function CodePanel({ tutorialExpanded = false }: { tutorialExpanded?: boolean }) {
+export function CodePanel({ tutorialExpanded = false, hidden = false }: { tutorialExpanded?: boolean; hidden?: boolean }) {
   const pseudocode = useGraphStore((s) => s.code);
   const representations = useGraphStore((s) => s.representations);
   const steps = useGraphStore((s) => s.steps);
@@ -40,18 +40,18 @@ export function CodePanel({ tutorialExpanded = false }: { tutorialExpanded?: boo
   const activeLine = activeLines[0] ?? null;
   const label = representation?.label ?? 'Pseudocódigo';
   const hasCode = Boolean(code?.length && steps.length);
-  const { panelRef, action, announcement, adjust, reset, pointerDown, pointerMove, pointerUp, keyboard, cancel, allowClick, style } = useFloatingPanel(hasCode, collapsed);
+  const { panelRef, action, announcement, adjust, reset, pointerDown, pointerMove, pointerUp, keyboard, cancel, allowClick, style } = useFloatingPanel(hasCode && !hidden, collapsed);
 
   // Scroll only the code scroller; the canvas, page and action buttons stay in place.
   useLayoutEffect(() => {
     const list = linesRef.current;
     const line = activeRef.current;
-    if (!list || !line || collapsed) return;
+    if (!list || !line || collapsed || hidden) return;
     const top = line.offsetTop;
     if (top < list.scrollTop || top + line.offsetHeight > list.scrollTop + list.clientHeight) {
       list.scrollTop = Math.max(0, top - list.clientHeight / 2);
     }
-  }, [activeLine, language, collapsed, style?.height, adjustOpen]);
+  }, [activeLine, language, collapsed, hidden, style?.height, adjustOpen]);
 
   if (!code || code.length === 0 || steps.length === 0) return null;
   const variables = current?.variables ?? null;
@@ -81,13 +81,14 @@ export function CodePanel({ tutorialExpanded = false }: { tutorialExpanded?: boo
   return (
     <div
       ref={panelRef}
+      id="algorithm-code-panel"
       role="region"
       aria-label="Código del algoritmo"
       data-cy="code-panel"
       data-panel-action={action ?? 'idle'}
       data-active-line={activeLine ?? ''}
       data-language={representation?.language ?? 'pseudocode'}
-      style={style}
+      style={{ ...style, display: hidden ? 'none' : undefined }}
       className={cn('absolute bottom-[112px] left-4 pointer-events-auto flex flex-col w-[380px] max-w-[calc(100%_-_2rem)] overflow-hidden border border-border bg-shell/90 backdrop-blur-md', action && 'select-none')}
     >
       <p id={instructionsId} className="sr-only">Arrastra para ajustar el panel o haz clic para abrir los botones de ajuste. Usa las flechas; Mayús mueve 32 píxeles. Inicio restablece el panel. Escape cancela el arrastre.</p>

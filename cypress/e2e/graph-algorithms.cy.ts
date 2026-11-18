@@ -2,6 +2,7 @@
 import { SEEDED } from '../support/commands';
 import type { StepsResponse } from '../../src/types/graph';
 import { goToLastStep } from '../support/hu19';
+import { verifyJavaCode } from '../support/javaCode';
 
 const nodes = ['a', 'b', 'c', 'd'].map((id, i) => ({id, label: id.toUpperCase(), x: i * 2, y: i % 2, z: 0, depth: 0, parent: null, properties: {}}));
 const edges = [
@@ -18,7 +19,7 @@ describe('Graph algorithms through the real API and player', () => {
     cy.loginByApi(SEEDED.student.email, SEEDED.student.password);
     cy.visit('/');
     cy.get('[data-cy=nav-graph]').click();
-    cy.window().then(win => win.__vista!.engine.loadStructure(nodes, edges, null));
+    cy.window().then(win => win.__vista!.engine.loadStructure(nodes, edges, {type: 'graph', subtype: 'simple', nodeCount: nodes.length, edgeCount: edges.length, computedProperties: {}}));
     cy.get('[data-cy=algorithm-toggle]').click();
   });
   for (const op of ['bfs','dfs','dijkstra','floyd','prim','kruskal']) {
@@ -39,6 +40,7 @@ describe('Graph algorithms through the real API and player', () => {
         if(op==='dijkstra') expect(result.variables?.distancias).to.eq('A: 0, B: 3, C: 1, D: 4');
         if(op==='prim'||op==='kruskal') expect(result.variables?.costo).to.eq('4');
         if(op==='floyd') expect(result.variables?.['D[a] · A']).to.eq('[0, 3, 1, 4]');
+        verifyJavaCode(body);
       });
       cy.get('[data-cy=step-counter]').should('be.visible');
       cy.get('[data-cy=algorithm-panel]').find('button[aria-label="Cerrar panel"]').click();

@@ -25,10 +25,10 @@ describe('HU-22b · CA-2 Inspector de variables', () => {
     cy.get('[data-cy=var-nodo]').should('exist');
     cy.get('[data-cy=var-salida]').should('exist');
     cy.window().then((win) => {
-      const w = win as Window & { __vista?: { engine: { getState(): { stepIndex: number; trace: { variables: Record<string, string>; highlightedNodeIds: string[] }[] } } } };
-      const st = w.__vista!.engine.getState();
+      const st = win.__vista!.engine.getState();
       const step = st.trace[st.stepIndex];
-      for (const [k, v] of Object.entries(step.variables)) {
+      expect(step.variables).to.be.an('object');
+      for (const [k, v] of Object.entries(step.variables!)) {
         cy.get(`[data-cy=var-${k}-value]`).should('have.text', v);
       }
       if (step.highlightedNodeIds.length > 0) {

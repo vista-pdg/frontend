@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Download, Loader2, LogOut, Network } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/useAuth';
+import { ManagementHeader } from '@/components/ManagementHeader';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AnalyticsRanking } from '@/components/AnalyticsRanking';
@@ -13,11 +13,10 @@ import type { CourseDto } from '@/types/auth';
 import type { AnalyticsFilter, PedagogicalReport } from '@/types/analytics';
 
 type LoadState<T> = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; data: T };
-const controlClass = 'min-h-11 w-full min-w-0 border border-muted-foreground/60 bg-shell px-3 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50';
-const linkClass = 'inline-flex min-h-11 items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+const controlClass = 'min-h-11 w-full min-w-0 border border-border bg-shell px-3 text-[13px] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50';
 
 export function AnalyticsPage() {
-  const { user, logout, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const [courses, setCourses] = useState<LoadState<CourseDto[]>>({ status: 'loading' });
   const [courseAttempt, setCourseAttempt] = useState(0);
   const [draft, setDraft] = useState<AnalyticsFilter>(() => ({ courseCode: '', ...defaultAnalyticsDates() }));
@@ -119,32 +118,21 @@ export function AnalyticsPage() {
     }
   }
 
-  return <div className="h-full w-full overflow-y-auto bg-shell text-foreground scrollbar-custom" data-cy="analytics-page">
+  return <div className="h-full w-full overflow-y-auto bg-shell text-foreground scrollbar-custom [scrollbar-gutter:stable]" data-cy="analytics-page">
     <a href="#analytics-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-shell focus:p-3 focus:text-foreground focus:outline-2 focus:outline-ring">Saltar al reporte</a>
-    <div className="h-[2px] bg-primary" />
-    <header className="border-b border-border">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-3"><div className="flex size-8 shrink-0 items-center justify-center bg-primary text-primary-foreground"><Network className="size-4" aria-hidden="true" /></div>
-          <div><span className="text-[13px] font-bold uppercase tracking-[0.25em]">VISTA</span><span className="ml-3 text-xs text-muted-foreground">Panel analítico</span></div></div>
-        <nav aria-label="Navegación de analítica" className="flex flex-wrap items-center gap-x-4">
-          {isAdmin && <Link to="/admin" className={linkClass}>Administración</Link>}
-          <Link to="/" data-cy="link-to-canvas" className={linkClass}><ArrowLeft className="size-4" aria-hidden="true" />Ir al visualizador</Link>
-          <span className="hidden max-w-40 truncate text-xs text-muted-foreground lg:inline" title={user?.displayName}>{user?.displayName}</span>
-          <Button variant="ghost" onClick={logout} data-cy="logout" aria-label="Cerrar sesión" className="size-11"><LogOut aria-hidden="true" /></Button>
-        </nav>
-      </div>
-    </header>
+    <div className="fixed top-0 left-0 right-0 z-30 h-[2px] bg-primary" />
+    <ManagementHeader section="Panel analítico" />
     <main id="analytics-content" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-bold tracking-tight">Analítica pedagógica</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Identifica los temas que necesitan refuerzo en tu cohorte.</p>
+      <h1 className="text-[20px] font-bold tracking-tight">Analítica pedagógica</h1>
+      <p className="mt-1 text-[13px] text-muted-foreground">Identifica los temas que necesitan refuerzo en tu cohorte.</p>
       {courses.status === 'loading' && <p role="status" className="mt-6 text-sm" data-cy="analytics-courses-loading">Cargando cursos…</p>}
       {courses.status === 'error' && <div className="mt-6"><Alert><span data-cy="analytics-courses-error">{courses.message}</span></Alert>
         <Button className="mt-3 min-h-11" data-cy="analytics-courses-retry" onClick={() => { setCourses({ status: 'loading' }); setCourseAttempt(n => n + 1); }}>Reintentar</Button></div>}
       {courses.status === 'ready' && !hasCourses && <p className="mt-6 border border-border p-6 text-sm" data-cy="analytics-no-courses">
         No tienes cursos disponibles para consultar. {isAdmin ? 'Revisa los cursos configurados en Administración.' : 'Solicita la asignación de tu curso al administrador.'}</p>}
       {hasCourses && <>
-        <form ref={formRef} onSubmit={submit} noValidate autoComplete="off" className="mt-7 grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_auto]" aria-label="Filtros del reporte">
-          <div className="min-w-0"><label htmlFor="analytics-course" className="mb-2 block text-xs font-medium">Curso</label>
+        <form ref={formRef} onSubmit={submit} noValidate autoComplete="off" className="mt-8 grid items-start gap-6 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_auto]" aria-label="Filtros del reporte">
+          <div className="min-w-0"><label htmlFor="analytics-course" className="mb-2 block text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Curso</label>
             <select id="analytics-course" name="courseCode" data-cy="analytics-course" className={controlClass} value={draft.courseCode}
               onChange={e => changeFilter('courseCode', e.target.value)} aria-invalid={!!errors.courseCode} aria-describedby={errors.courseCode ? 'analytics-course-error' : undefined}>
               {courses.status === 'ready' && courses.data.map(course => <option key={course.code} value={course.code}>{course.code} · {course.name} · {course.termCode}</option>)}
@@ -152,7 +140,7 @@ export function AnalyticsPage() {
             {errors.courseCode && <p id="analytics-course-error" role="alert" className="mt-2 text-xs text-foreground">{errors.courseCode}</p>}
           </div>
           {(['from', 'to'] as const).map(field => <div key={field} className="min-w-0">
-            <label htmlFor={`analytics-${field}`} className="mb-2 block text-xs font-medium">{field === 'from' ? 'Desde' : 'Hasta'}</label>
+            <label htmlFor={`analytics-${field}`} className="mb-2 block text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">{field === 'from' ? 'Desde' : 'Hasta'}</label>
             <input id={`analytics-${field}`} name={field} data-cy={`analytics-${field}`} type="date" min="0001-01-01" max="9999-12-31" className={controlClass}
               value={draft[field]} onChange={e => changeFilter(field, e.target.value)} aria-invalid={!!errors[field]} aria-describedby={errors[field] ? `analytics-${field}-error` : undefined} />
             {errors[field] && <p id={`analytics-${field}-error`} role="alert" className="mt-2 text-xs text-foreground">{errors[field]}</p>}
@@ -172,7 +160,7 @@ export function AnalyticsPage() {
         <p role="status" className="text-sm text-muted-foreground" data-cy="analytics-export-status">{exportNotice}</p>
         <div className="mb-6 flex border-b border-border" role="group" aria-label="Vista del reporte">
           {analyticsViews.map(({ id, label }) => <button key={id} type="button" data-cy={`analytics-view-${id}`} aria-pressed={view === id}
-            className={cn('min-h-11 flex-1 border-b-2 px-2 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:flex-none sm:px-6', view === id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
+            className={cn('min-h-11 flex-1 border-b-2 px-2 py-3 text-[12px] font-semibold focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:flex-none sm:px-5', view === id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
             onClick={() => setView(id)}>{label}</button>)}
         </div>
         {busy && <p role="status" data-cy="analytics-loading" className="py-8 text-sm">Calculando métricas…</p>}

@@ -27,7 +27,7 @@ describe('Flujo único de aprendizaje', () => {
     });
     cy.get('[data-cy=tutorial-open]').click();
     cy.get('[data-cy=tutorial-prev]').should('be.disabled');
-    for (let i = 0; i < 4; i++) cy.get('[data-cy=tutorial-next]').click();
+    for (let i = 0; i < 5; i++) cy.get('[data-cy=tutorial-next]').click();
     cy.get('[data-cy=tutorial-next]').should('contain', 'Terminar').click();
     cy.get('[data-cy=tutorial-open]').should('have.focus');
     cy.get('[data-cy=nav-tree-avl]').should('have.attr', 'aria-pressed', 'true');

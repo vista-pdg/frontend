@@ -59,7 +59,10 @@ export function runDemo(demoCy: string, values?: string) {
   openSidebar();
   cy.get(`[data-cy=${demoCy}]`).click();
   cy.get('[data-cy=algo-form]').should('be.visible');
-  if (values !== undefined) cy.get('[data-cy=algo-values]').clear().type(values);
+  if (values !== undefined) {
+    cy.get('[data-cy=algo-source-values]').check();
+    cy.get('[data-cy=algo-values]').clear().type(values);
+  }
   cy.intercept('POST', '/api/algorithm/steps').as('steps');
   cy.get('[data-cy=algo-generate]').should('not.be.disabled').click();
   cy.wait('@steps').its('response.body.error').should('eq', false);
