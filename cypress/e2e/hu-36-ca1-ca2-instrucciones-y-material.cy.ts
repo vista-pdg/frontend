@@ -13,7 +13,10 @@ describe('HU-36 · Instrucciones y material para la IA', () => {
     cy.clearLocalStorage();
     cy.loginByApi(SEEDED.teacher.email, SEEDED.teacher.password);
     cy.visit('/docencia/quizzes');
-    by('quiz-course-filter').select(course);
+    // La lista del primer curso termina de cargar antes de cambiar de curso.
+    by('quiz-table-loading').should('not.exist');
+    cy.then(() => by('quiz-course-filter').find(`option[value="${course}"]`).should('exist'));
+    cy.then(() => by('quiz-course-filter').select(course));
     by('quiz-new').click();
   });
 

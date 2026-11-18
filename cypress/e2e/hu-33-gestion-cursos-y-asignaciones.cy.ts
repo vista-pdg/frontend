@@ -65,7 +65,9 @@ describe('HU-33 · Gestión de cursos, docentes y matrícula', () => {
     cy.get('[data-cy=analytics-course]').select(code);
     cy.get('[data-cy=analytics-apply]').click();
     cy.get('[data-cy=analytics-applied]').should('contain', code);
-    cy.get('[data-cy=analytics-ranking]').should('exist');
+    // El docente asignado accede al reporte; un grupo nuevo sin actividad no alcanza el umbral (HU-36 · CA-5).
+    cy.get('[data-cy=analytics-suppressed]').should('contain', 'Datos insuficientes para garantizar el anonimato');
+    cy.get('[data-cy=analytics-report-error]').should('not.exist');
 
     cy.clearLocalStorage();
     cy.loginByApi(SEEDED.admin.email, SEEDED.admin.password);

@@ -101,10 +101,10 @@ export function MaterialSources({ idPrefix, rows, disabled, adding, onAddLink, o
           <p className="text-[13px] font-semibold">Sube un archivo</p>
           <p id={`${idPrefix}-file-hint`} className="text-[11px] text-muted-foreground">PDF, Markdown, TXT, DOCX o cuaderno .ipynb · hasta 10 MB</p>
         </div>
-        <input ref={fileInput} id={`${idPrefix}-file`} data-cy="material-file-input" type="file" accept={MATERIAL_ACCEPT} className="sr-only" tabIndex={-1}
-          aria-describedby={`${idPrefix}-file-hint`} disabled={locked}
+        <input ref={fileInput} id={`${idPrefix}-file`} data-cy="material-file-input" type="file" accept={MATERIAL_ACCEPT} className="hidden" tabIndex={-1}
+          aria-label="Archivo de material" disabled={locked}
           onChange={e => { void addFile(e.target.files?.[0]); e.target.value = ''; }} />
-        <Button type="button" variant="outline" className="min-h-11 px-4" data-cy="material-pick-file" disabled={locked} onClick={() => fileInput.current?.click()}>
+        <Button type="button" variant="outline" className="min-h-11 px-4" data-cy="material-pick-file" disabled={locked} aria-describedby={`${idPrefix}-file-hint`} onClick={() => fileInput.current?.click()}>
           <FileUp aria-hidden="true" />Elegir archivo
         </Button>
       </div>

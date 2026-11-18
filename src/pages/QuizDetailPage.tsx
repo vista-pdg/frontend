@@ -265,7 +265,7 @@ export function QuizDetailPage() {
           <p className="text-xs text-muted-foreground break-words">{quiz.topics.map(topic => topic.label).join(' · ')}</p>
         </div>
         {quiz.attemptsStarted === 0 && (
-          <Button variant="destructive" className="min-h-11 px-4" data-cy="quiz-delete" disabled={generating}
+          <Button variant="destructive" className="min-h-11 border-destructive px-4 text-foreground" data-cy="quiz-delete" disabled={generating}
             onClick={event => { trigger.current = event.currentTarget; setPending({ kind: 'quiz' }); }}>
             <Trash2 aria-hidden="true" />Eliminar quiz
           </Button>

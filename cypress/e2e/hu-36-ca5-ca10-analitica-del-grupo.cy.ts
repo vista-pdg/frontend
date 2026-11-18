@@ -9,7 +9,8 @@ describe('HU-36 · Analítica pedagógica del grupo', () => {
     let quiz = 0;
     newCourse('Q36A').then(course => {
       assignSeededTeacher(course);
-      createPublishedQuiz(course, { title: 'Quiz analítica', questionsPerStudent: 2, studentCount: 5 }).then(id => {
+      // Banco de 2 preguntas: cada una recibe las 5 respuestas y entra al ranking (mínimo 3).
+      createPublishedQuiz(course, { title: 'Quiz analítica', questionsPerStudent: 2, studentCount: 1 }).then(id => {
         quiz = id;
         for (let i = 0; i < 5; i++) {
           cy.registerStudentByApi(`q36a${i}`, course);
@@ -36,14 +37,14 @@ describe('HU-36 · Analítica pedagógica del grupo', () => {
     by('analytics-tab-topics').click();
     by('analytics-topic-row').should('have.length.at.least', 2).first().should('have.attr', 'data-level');
     by('analytics-tab-questions').click();
-    by('analytics-questions').should('exist');
+    by('analytics-hard-question').should('have.length.at.least', 1).first().should('contain', '5 respuestas');
     by('analytics-tab-quizzes').click();
     by('analytics-quiz-row').should('have.length', 1).and('contain', 'Quiz analítica').and('contain', '5 / 5');
 
     // Filtro opcional de quiz.
     cy.then(() => by('analytics-quiz').select(String(quiz)));
     by('analytics-apply').click();
-    cy.wait('@report').its('request.url').should('contain', `quizId=${quiz}`);
+    cy.wait('@report').then(({ request }) => expect(request.url).to.contain(`quizId=${quiz}`));
     by('analytics-applied').should('contain', 'Quiz analítica');
 
     // Un periodo sin actividad no alcanza el umbral: un único aviso y «Quitar fechas».
@@ -53,6 +54,9 @@ describe('HU-36 · Analítica pedagógica del grupo', () => {
     by('analytics-suppressed').should('contain', 'Datos insuficientes para garantizar el anonimato').and('contain', 'Amplía el periodo');
     by('analytics-tab-summary').should('not.exist');
     by('analytics-clear-dates').click();
+    // La pestaña elegida se conserva al recalcular.
+    by('analytics-tab-quizzes').should('have.attr', 'aria-pressed', 'true');
+    by('analytics-tab-summary').click();
     by('analytics-kpi-active').should('have.text', '5');
 
     cy.intercept('GET', '/api/analytics/report.csv?*').as('csv');

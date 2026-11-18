@@ -71,7 +71,7 @@ export function BankQuestionCard({ quizId, question, number, canDelete, busy, on
                 <Sparkles aria-hidden="true" />Editar con IA<span className="sr-only"> la pregunta {number}</span>
               </Button>
               {canDelete && (
-                <Button variant="destructive" className="min-h-11 px-3 text-xs" data-cy="bank-question-delete" disabled={busy}
+                <Button variant="destructive" className="min-h-11 border-destructive px-3 text-xs text-foreground" data-cy="bank-question-delete" disabled={busy}
                   aria-label={`Eliminar la pregunta ${number}`} onClick={event => onDelete(event.currentTarget)}>
                   <Trash2 aria-hidden="true" />Eliminar
                 </Button>
