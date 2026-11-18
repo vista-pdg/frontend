@@ -145,7 +145,8 @@ export function StudyQuizPage() {
       <div className="relative flex min-h-0 flex-1">
         <section aria-label="Pregunta de estudio" data-cy="study-question-panel"
           className={cn('flex w-full shrink-0 flex-col overflow-hidden border-r border-border bg-card lg:w-[420px]', mobileTab === 'vista' && 'max-lg:hidden')}>
-          <div className="flex-1 space-y-4 overflow-y-auto p-5 scrollbar-custom">
+          {/* relative: los textos sr-only del tutor (absolutos) quedan dentro del panel y no alargan el documento. */}
+          <div className="relative flex-1 space-y-4 overflow-y-auto p-5 scrollbar-custom">
             {incomplete && (
               <div className="space-y-3" data-cy="study-incomplete">
                 <p className="text-[13px] leading-relaxed">Tu quiz tiene {questions.length} de {total} preguntas. Puedes responderlas ya o completar la generación.</p>
