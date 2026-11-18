@@ -21,6 +21,7 @@ import type {
   StudentEnrollmentDto,
   UserDto,
 } from '@/types/auth';
+import { NativeSelect } from '@/components/ui/native-select';
 
 const inputClass = 'min-h-11 w-full border border-border bg-shell px-3 py-2 text-[13px] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 const actionClass = 'min-h-11 border border-border px-3 py-2 text-[12px] font-semibold text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50';
@@ -161,10 +162,10 @@ export function CourseManagementSection({ courses, onCourseCreated }: {
             <input data-cy="new-course-name" className={inputClass} value={draft.name} maxLength={160} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} placeholder="Computación y Estructuras Discretas I" required />
           </label>
           <label className="block text-[12px] font-medium">Periodo
-            <select data-cy="new-course-term" className={inputClass} value={draft.termCode} onChange={e => setDraft(d => ({ ...d, termCode: e.target.value }))} required>
+            <NativeSelect data-cy="new-course-term" className={inputClass} value={draft.termCode} onChange={e => setDraft(d => ({ ...d, termCode: e.target.value }))} required>
               <option value="">Selecciona un periodo</option>
               {terms.map(term => <option key={term.code} value={term.code}>{term.code}{term.active ? ' · activo' : ''}</option>)}
-            </select>
+            </NativeSelect>
           </label>
           <button data-cy="new-course-submit" type="submit" className={primaryClass} disabled={loading || busy || terms.length === 0}>Crear curso</button>
         </form>
@@ -179,9 +180,9 @@ export function CourseManagementSection({ courses, onCourseCreated }: {
             <p className="mt-1 text-[12px] text-muted-foreground">Selecciona un grupo para gestionar sus responsables y estudiantes.</p>
           </div>
           {courses.length > 0 && <label className="block min-w-[12rem] text-[12px] font-medium">Curso
-            <select data-cy="managed-course" className={inputClass} value={selected} disabled={busy} onChange={e => { setLoadingTeachers(true); setTeachers([]); setSelectedCode(e.target.value); setTeacherId(''); setStudentId(''); setError(null); setNotice(null); }}>
+            <NativeSelect data-cy="managed-course" className={inputClass} value={selected} disabled={busy} onChange={e => { setLoadingTeachers(true); setTeachers([]); setSelectedCode(e.target.value); setTeacherId(''); setStudentId(''); setError(null); setNotice(null); }}>
               {courses.map(c => <option key={c.code} value={c.code}>{c.code} · {c.termCode}</option>)}
-            </select>
+            </NativeSelect>
           </label>}
         </div>
         {courses.length === 0 ? <p className="mt-5 text-[13px] text-muted-foreground" data-cy="no-managed-courses">Crea un curso para comenzar.</p> : <>
@@ -194,10 +195,10 @@ export function CourseManagementSection({ courses, onCourseCreated }: {
               </li>)}</ul>}
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <label className="min-w-0 flex-1 text-[12px] font-medium">Asignar docente activo
-                <select data-cy="teacher-candidate" className={inputClass} value={teacherId} onChange={e => setTeacherId(e.target.value)} disabled={busy || loading}>
+                <NativeSelect data-cy="teacher-candidate" className={inputClass} value={teacherId} onChange={e => setTeacherId(e.target.value)} disabled={busy || loading}>
                   <option value="">Selecciona un docente</option>
                   {availableTeachers.map(t => <option key={t.id} value={t.id}>{t.displayName} · {t.email}</option>)}
-                </select>
+                </NativeSelect>
               </label>
               <button type="button" className={`${primaryClass} sm:self-end`} data-cy="assign-teacher" disabled={!teacherId || busy} onClick={() => void assignTeacher()}>Asignar docente</button>
             </div>
@@ -212,10 +213,10 @@ export function CourseManagementSection({ courses, onCourseCreated }: {
               </li>)}</ul>}
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <label className="min-w-0 flex-1 text-[12px] font-medium">Vincular o cambiar estudiante de curso
-                <select data-cy="student-candidate" className={inputClass} value={studentId} onChange={e => setStudentId(e.target.value)} disabled={busy || loading}>
+                <NativeSelect data-cy="student-candidate" className={inputClass} value={studentId} onChange={e => setStudentId(e.target.value)} disabled={busy || loading}>
                   <option value="">Selecciona un estudiante registrado</option>
                   {students.filter(s => s.courseCode !== selected).map(s => <option key={s.id} value={s.id}>{s.displayName} · {s.email}{s.courseCode ? ` · actualmente ${s.courseCode}` : ' · sin curso'}</option>)}
-                </select>
+                </NativeSelect>
               </label>
               <button type="button" className={`${primaryClass} sm:self-end`} data-cy="assign-student" disabled={!studentId || busy} onClick={() => void assignStudent()}>Vincular estudiante</button>
             </div>

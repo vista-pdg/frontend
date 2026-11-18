@@ -18,6 +18,7 @@ import { ApiError } from '@/lib/http';
 import { cn } from '@/lib/utils';
 import type { CourseDto } from '@/types/auth';
 import type { AnalyticsFilter, PedagogicalReport, QuizRef } from '@/types/analytics';
+import { NativeSelect } from '@/components/ui/native-select';
 
 type LoadState<T> = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; data: T };
 const controlClass = 'min-h-11 w-full min-w-0 border border-border bg-shell px-3 text-[13px] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50';
@@ -170,10 +171,10 @@ export function AnalyticsPage() {
       {hasCourses && <>
         <form ref={formRef} onSubmit={submit} noValidate autoComplete="off" className="mt-8 grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1.4fr_auto]" aria-label="Filtros del reporte">
           <div className="min-w-0 sm:col-span-2 lg:col-span-1"><label htmlFor="analytics-course" className={labelClass}>Curso</label>
-            <select id="analytics-course" name="courseCode" data-cy="analytics-course" className={controlClass} value={draft.courseCode}
+            <NativeSelect id="analytics-course" name="courseCode" data-cy="analytics-course" className={controlClass} value={draft.courseCode}
               onChange={e => changeFilter('courseCode', e.target.value)} aria-invalid={!!errors.courseCode} aria-describedby={errors.courseCode ? 'analytics-course-error' : undefined}>
               {courses.status === 'ready' && courses.data.map(course => <option key={course.code} value={course.code}>{course.code} · {course.name} · {course.termCode}</option>)}
-            </select>
+            </NativeSelect>
             {errors.courseCode && <p id="analytics-course-error" role="alert" className="mt-2 text-xs text-foreground">{errors.courseCode}</p>}
           </div>
           {(['from', 'to'] as const).map(field => <div key={field} className="min-w-0">
@@ -183,11 +184,11 @@ export function AnalyticsPage() {
             {errors[field] && <p id={`analytics-${field}-error`} role="alert" className="mt-2 text-xs text-foreground">{errors[field]}</p>}
           </div>)}
           <div className="min-w-0"><label htmlFor="analytics-quiz" className={labelClass}>Quiz (opcional)</label>
-            <select id="analytics-quiz" name="quizId" data-cy="analytics-quiz" className={controlClass} value={draft.quizId}
+            <NativeSelect id="analytics-quiz" name="quizId" data-cy="analytics-quiz" className={controlClass} value={draft.quizId}
               onChange={e => changeFilter('quizId', e.target.value)} aria-describedby="analytics-filter-hint">
               <option value="">Todos los quizzes</option>
               {quizOptions.map(quiz => <option key={quiz.id} value={String(quiz.id)}>{quiz.title}</option>)}
-            </select>
+            </NativeSelect>
           </div>
           <Button type="submit" data-cy="analytics-apply" className="min-h-11 px-4 sm:col-span-2 lg:col-span-1 lg:mt-6" disabled={busy && !dirty}>Aplicar</Button>
         </form>

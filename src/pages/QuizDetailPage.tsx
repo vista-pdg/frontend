@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, Loader2, RefreshCw, Send, Sparkles, Trash2 } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
+import { useAuth } from '@/contexts/useAuth';
 import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { BankProgress } from '@/components/quiz/BankProgress';
@@ -171,6 +172,7 @@ function ResultsPanel({ quizId, showGrade, onVisibility }: { quizId: number; sho
 export function QuizDetailPage() {
   const quizId = Number(useParams().quizId);
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [detail, setDetail] = useState<LoadState<QuizDetailDto>>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const [tab, setTab] = useState<Tab | null>(null);
@@ -211,6 +213,7 @@ export function QuizDetailPage() {
   const draft = quiz.status === 'DRAFT';
   const active: Tab = tab ?? (draft ? 'bank' : 'results');
   const missing = Math.max(0, quiz.bankTarget - quiz.bankSize);
+  const withAttempts = quiz.attemptsStarted > 0;
   const phase = phaseLabel[quiz.phase];
   const generating = generation.state.status === 'running';
 
@@ -264,7 +267,8 @@ export function QuizDetailPage() {
           </p>
           <p className="text-xs text-muted-foreground break-words">{quiz.topics.map(topic => topic.label).join(' · ')}</p>
         </div>
-        {quiz.attemptsStarted === 0 && (
+        {/* El docente elimina solo sin intentos; el administrador, también con entregas. */}
+        {(quiz.attemptsStarted === 0 || isAdmin) && (
           <Button variant="destructive" className="min-h-11 border-destructive px-4 text-foreground" data-cy="quiz-delete" disabled={generating}
             onClick={event => { trigger.current = event.currentTarget; setPending({ kind: 'quiz' }); }}>
             <Trash2 aria-hidden="true" />Eliminar quiz
@@ -329,12 +333,16 @@ export function QuizDetailPage() {
 
       <ConfirmationDialog
         open={pending !== null}
-        title={pending?.kind === 'quiz' ? 'Eliminar quiz' : 'Eliminar pregunta'}
+        title={pending?.kind === 'quiz' ? (withAttempts ? 'Eliminar quiz con entregas' : 'Eliminar quiz') : 'Eliminar pregunta'}
         description={pending?.kind === 'quiz'
-          ? 'Se eliminará el quiz con todo su banco. Esta acción no se puede deshacer.'
+          ? withAttempts
+            ? `El quiz tiene ${quiz.attemptsStarted} ${quiz.attemptsStarted === 1 ? 'intento' : 'intentos'} de estudiantes. Se eliminarán el quiz, su banco, su material y todos los intentos y notas. Esta acción no se puede deshacer.`
+            : 'Se eliminará el quiz con todo su banco. Esta acción no se puede deshacer.'
           : 'La pregunta saldrá del banco y habrá que generar un reemplazo antes de publicar.'}
-        target={pending?.kind === 'quiz' ? { name: quiz.title, detail: quiz.courseCode } : pending ? { name: pending.question.statement, detail: pending.question.topicLabel } : null}
-        confirmLabel="Eliminar"
+        target={pending?.kind === 'quiz'
+          ? { name: quiz.title, detail: withAttempts ? `${quiz.courseCode} · ${quiz.attemptsStarted} ${quiz.attemptsStarted === 1 ? 'intento' : 'intentos'}` : quiz.courseCode }
+          : pending ? { name: pending.question.statement, detail: pending.question.topicLabel } : null}
+        confirmLabel={pending?.kind === 'quiz' && withAttempts ? 'Eliminar quiz y resultados' : 'Eliminar'}
         onConfirm={confirmPending}
         onClose={() => setPending(null)}
         restoreFocus={() => trigger.current}

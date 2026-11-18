@@ -15,6 +15,7 @@ import { QuizField } from '@/components/quiz/QuizField';
 import { MaterialSources, type SourceRow } from '@/components/quiz/MaterialSources';
 import { addMaterialFile, addMaterialLink, createQuiz, fetchManagedCourses, fetchManagedQuizzes, fetchQuizTopics } from '@/services/quizService';
 import type { ManagedCourseDto, QuizSummaryDto, QuizTopicDto } from '@/types/quiz';
+import { NativeSelect } from '@/components/ui/native-select';
 
 type LoadState<T> = { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: T };
 const FIELD_ORDER: (keyof QuizFormValues)[] = ['courseCode', 'title', 'topics', 'questionsPerStudent', 'studentCount', 'timeLimitMinutes', 'opensAt', 'closesAt', 'instructions'];
@@ -181,10 +182,10 @@ function NewQuizForm({ courses, topics, initialCourse, onCancel }: {
         <h1 className="text-[20px] font-bold tracking-tight">Nuevo quiz</h1>
         <div className="grid gap-4 sm:grid-cols-2">
           <QuizField id="quiz-courseCode" label="Curso" error={errors.courseCode}>
-            <select id="quiz-courseCode" name="courseCode" data-cy="quiz-courseCode" className={quizControlClass} value={values.courseCode}
+            <NativeSelect id="quiz-courseCode" name="courseCode" data-cy="quiz-courseCode" className={quizControlClass} value={values.courseCode}
               onChange={e => changeCourse(e.target.value)} disabled={locked} aria-invalid={!!errors.courseCode} aria-describedby={fieldDescribedBy('quiz-courseCode', errors.courseCode)}>
               {courses.map(c => <option key={c.code} value={c.code}>{c.code} · {c.termCode}</option>)}
-            </select>
+            </NativeSelect>
           </QuizField>
           <QuizField id="quiz-title" label="Título" error={errors.title}>
             <input id="quiz-title" name="title" data-cy="quiz-title" type="text" autoComplete="off" maxLength={160} className={quizControlClass}
@@ -349,10 +350,10 @@ export function QuizManagementPage() {
             <>
               <div className="mt-7 max-w-md">
                 <label htmlFor="quiz-course-filter" className="mb-2 block text-xs font-medium">Curso</label>
-                <select id="quiz-course-filter" data-cy="quiz-course-filter" className={quizControlClass} value={courseCode}
+                <NativeSelect id="quiz-course-filter" data-cy="quiz-course-filter" className={quizControlClass} value={courseCode}
                   onChange={e => { setQuizzes({ status: 'loading' }); setCourseCode(e.target.value); }}>
                   {courses.map(c => <option key={c.code} value={c.code}>{c.code} · {c.name} · {c.termCode}</option>)}
-                </select>
+                </NativeSelect>
               </div>
               {quizzes.status === 'loading' && <p role="status" className="mt-6 text-sm" data-cy="quiz-table-loading">Cargando quizzes…</p>}
               {quizzes.status === 'error' && (

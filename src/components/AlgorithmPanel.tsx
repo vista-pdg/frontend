@@ -10,6 +10,7 @@ import { algorithmKey } from '@/services/algorithmService';
 import { algorithmFitsCanvas, canvasParameter } from '@/lib/algorithmCanvas';
 import type { AlgorithmDescriptor } from '@/types/graph';
 import { X, FlaskConical, ChevronLeft, ChevronRight, Loader2, AlertCircle, Play } from 'lucide-react';
+import { NativeSelect } from '@/components/ui/native-select';
 
 /** Orden y nombre de las familias del syllabus en el panel (HU-19). */
 const FAMILIES: { id: string; label: string }[] = [
@@ -341,7 +342,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                       <label htmlFor="algo-start" className="text-[10px] font-bold tracking-[0.15em] text-muted-foreground uppercase">
                         Nodo inicial
                       </label>
-                      <select
+                      <NativeSelect
                         id="algo-start"
                         value={start}
                         onChange={(e) => setChosenStart(e.target.value)}
@@ -353,7 +354,7 @@ export function AlgorithmPanel({ open, onClose }: AlgorithmPanelProps) {
                             {n.label}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </>
                   ) : (
                     <p className="text-[11px] text-muted-foreground leading-relaxed" data-cy="algo-needs-graph">
