@@ -76,12 +76,16 @@ export function QuizExamPage() {
   const [startError, setStartError] = useState('');
   const [saveError, setSaveError] = useState('');
   const [savedAt, setSavedAt] = useState('');
+  const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [incidents, setIncidents] = useState(0);
   const [mobileTab, setMobileTab] = useState<'question' | 'vista'>('question');
   const closing = useRef(false);
+  // Las respuestas se guardan en orden y la entrega espera a la última: así no se califica sin ella.
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+  const pendingSaves = useRef(0);
 
   const finish = useCallback((finished: AttemptDto) => {
     if (!finished.result) return;
@@ -150,28 +154,39 @@ export function QuizExamPage() {
   useEffect(() => {
     if (!running || remaining > 0 || closing.current) return;
     closing.current = true;
-    submitAttempt(quizId).then(finish).catch(() => fetchAttempt(quizId).then(finish).catch(() => {
+    saveQueue.current.then(() => submitAttempt(quizId)).then(finish).catch(() => fetchAttempt(quizId).then(finish).catch(() => {
       setStage({ kind: 'unavailable', message: 'Se acabó el tiempo. Vuelve a tus quizzes para ver el resultado.' });
     }));
   }, [running, remaining, quizId, finish]);
 
-  async function choose(position: number, option: number) {
+  function choose(position: number, option: number) {
     if (!attempt) return;
-    const previous = attempt;
+    const before = attempt.questions.find(q => q.position === position)?.selectedOption ?? null;
+    const select = (value: number | null) => setAttempt(current => current && {
+      ...current, questions: current.questions.map(q => q.position === position ? { ...q, selectedOption: value } : q),
+    });
     setSaveError('');
-    setAttempt({ ...attempt, questions: attempt.questions.map(q => q.position === position ? { ...q, selectedOption: option } : q) });
-    try {
-      const saved = await answerQuestion(quizId, position, option);
-      setAttempt(saved);
-      setSavedAt(new Date().toLocaleTimeString('es-CO', { hour12: false }));
-    } catch (error) {
-      if (error instanceof ApiError && error.code === 'ATTEMPT_CLOSED') {
-        fetchAttempt(quizId).then(finish).catch(() => undefined);
-        return;
+    select(option);
+    pendingSaves.current += 1;
+    setSaving(true);
+    saveQueue.current = saveQueue.current.then(async () => {
+      try {
+        const saved = await answerQuestion(quizId, position, option);
+        // Solo el último guardado pinta el estado del servidor, para no borrar una elección posterior.
+        if (pendingSaves.current === 1) setAttempt(saved);
+        setSavedAt(new Date().toLocaleTimeString('es-CO', { hour12: false }));
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'ATTEMPT_CLOSED') {
+          fetchAttempt(quizId).then(finish).catch(() => undefined);
+          return;
+        }
+        select(before);
+        setSaveError('No se pudo guardar tu respuesta. Revisa tu conexión y elige de nuevo.');
+      } finally {
+        pendingSaves.current -= 1;
+        if (pendingSaves.current === 0) setSaving(false);
       }
-      setAttempt(previous);
-      setSaveError('No se pudo guardar tu respuesta. Revisa tu conexión y elige de nuevo.');
-    }
+    });
   }
 
   async function submit() {
@@ -179,6 +194,7 @@ export function QuizExamPage() {
     setSubmitting(true);
     setSubmitError('');
     try {
+      await saveQueue.current;
       finish(await submitAttempt(quizId));
     } catch {
       setSubmitError('No se pudo entregar el quiz. Intenta de nuevo.');
@@ -303,7 +319,7 @@ export function QuizExamPage() {
                     className={cn('flex min-h-11 cursor-pointer gap-3 border p-3 text-[13px] leading-relaxed has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring',
                       selected ? 'border-2 border-primary bg-primary/12' : 'border-border hover:bg-muted')}>
                     <input type="radio" name={`question-${question.position}`} className="mt-1 size-4 shrink-0 accent-primary"
-                      checked={selected} onChange={() => void choose(question.position, index)} />
+                      checked={selected} onChange={() => choose(question.position, index)} />
                     <span className="min-w-0 break-words">{option}</span>
                   </label>
                 );
@@ -318,7 +334,7 @@ export function QuizExamPage() {
                 Siguiente<ArrowRight aria-hidden="true" />
               </Button>
             </div>
-            <p role="status" className="font-mono text-[11px] text-muted-foreground" data-cy="quiz-saved">{savedAt ? `Guardado · ${savedAt}` : ''}</p>
+            <p role="status" className="font-mono text-[11px] text-muted-foreground" data-cy="quiz-saved">{saving ? 'Guardando…' : savedAt ? `Guardado · ${savedAt}` : ''}</p>
             <p className="flex gap-2 border border-border p-2.5 text-[11px] leading-relaxed text-muted-foreground">
               <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               <span>Copiar, pegar, imprimir y salir de la pestaña están bloqueados y quedan registrados.{' '}

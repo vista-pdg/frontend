@@ -62,6 +62,32 @@ describe('HU-34 · Intento del estudiante y nota', () => {
     }));
   });
 
+  it('al entregar enseguida, espera a que se guarde la última respuesta y la califica', () => {
+    newCourse().then(course => createPublishedQuiz(course, { title: 'Quiz entregado al instante', questionsPerStudent: 1 }).then(quizId => {
+      cy.clearLocalStorage();
+      cy.registerStudentByApi('q34fast', course);
+      beginQuiz(quizId);
+      // La respuesta tarda en llegar al servidor: si la entrega no la esperara, se calificaría sin ella.
+      cy.intercept('PUT', `/api/quizzes/${quizId}/attempt/answers/*`, req => new Promise<void>(resolve => {
+        setTimeout(() => { req.continue(); resolve(); }, 1500);
+      })).as('save');
+      cy.intercept('POST', `/api/quizzes/${quizId}/attempt/submit`).as('submit');
+      bankOf(quizId).then(bank => {
+        by('quiz-scenario').invoke('text').then(scenario => by('quiz-statement').invoke('text').then(statement => {
+          const question = bank.find(q => q.scenario === scenario && q.statement === statement)!;
+          cy.contains('[data-cy^="quiz-option-"]', question.options[question.correctIndex]).find('input').check();
+        }));
+      });
+      by('quiz-saved').should('contain', 'Guardando');
+      by('quiz-submit').click();
+      by('quiz-confirm-submit').click();
+      by('quiz-confirm-submit').should('contain', 'Entregando');
+      cy.wait('@save');
+      cy.wait('@submit');
+      by('quiz-result-grade').should('contain', '5,0').and('contain', '1 de 1 respuestas correctas');
+    }));
+  });
+
   it('oculta la nota hasta que el docente la habilita', () => {
     newCourse().then(course => createPublishedQuiz(course, { title: 'Quiz con nota oculta', showGrade: false }).then(quizId => {
       cy.clearLocalStorage();
