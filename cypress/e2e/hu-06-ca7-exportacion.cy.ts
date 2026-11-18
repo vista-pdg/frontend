@@ -8,5 +8,5 @@ it('descarga el CSV del servidor conservando curso, fechas y supresión', () => 
   by('analytics-from').clear().type('2026-04-01'); by('analytics-to').clear().type('2026-04-30'); by('analytics-apply').click(); cy.wait('@report');
   by('analytics-export').click();
   cy.wait('@csv').then(({ request }) => expect(Object.fromEntries(new URL(request.url).searchParams)).to.deep.eq({ courseCode: 'CEDI-G1', from: '2026-04-01', to: '2026-04-30' }));
-  cy.readFile('cypress/downloads/vista-analitica-2026-04-01-2026-04-30.csv').should('contain', 'Datos insuficientes para garantizar el anonimato');
+  cy.readFile('cypress/downloads/vista-analitica-CEDI-G1-2026-04-01-2026-04-30.csv').should('contain', 'Datos insuficientes para garantizar el anonimato');
 });

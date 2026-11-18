@@ -2,10 +2,11 @@
 import { openAnalyticsFixture, by, protectedFixture } from '../support/hu06';
 
 // Prueba funcional de UI con fixtures; no sustituye la integración contra Postgres.
-it('oculta todas las métricas de los segmentos suprimidos', () => {
+// HU-36 · CA-5: el umbral es del grupo; por debajo, un único aviso y ninguna métrica.
+it('oculta todas las métricas cuando el grupo no alcanza el umbral', () => {
   openAnalyticsFixture(protectedFixture());
-  for (const view of ['structures', 'algorithms', 'retries']) {
-    by(`analytics-view-${view}`).click(); by('analytics-suppressed').first().should('contain', 'Datos insuficientes para garantizar el anonimato');
-    by('analytics-ranking').find('dd').should('not.exist');
-  }
+  by('analytics-suppressed').should('contain', 'Datos insuficientes para garantizar el anonimato').and('contain', 'menos de 5 estudiantes');
+  by('analytics-tab-summary').should('not.exist');
+  by('analytics-ranking').should('not.exist');
+  by('analytics-page').find('dd').should('not.exist');
 });

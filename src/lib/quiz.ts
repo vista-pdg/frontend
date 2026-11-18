@@ -1,7 +1,9 @@
 import type {
   AnswerOutcome,
   AttemptDto,
+  BankQuestionDto,
   CreateQuizRequest,
+  MaterialDto,
   QuizPhase,
   QuizTopicDto,
   ResultStatus,
@@ -113,6 +115,8 @@ export interface QuizFormValues {
   opensAt: string;
   closesAt: string;
   showGrade: boolean;
+  /** HU-36: instrucciones opcionales para la IA. */
+  instructions: string;
 }
 
 export type QuizFormErrors = Partial<Record<keyof QuizFormValues, string>>;
@@ -159,6 +163,9 @@ export function validateQuizForm(values: QuizFormValues, now: Date = new Date())
   if (!values.closesAt || Number.isNaN(closes.getTime())) errors.closesAt = 'Indica la fecha y hora de cierre.';
   else if (!errors.opensAt && closes <= opens) errors.closesAt = 'El cierre debe ser posterior a la apertura.';
   else if (closes <= now) errors.closesAt = 'El cierre debe estar en el futuro.';
+  if (values.instructions.trim().length > MAX_INSTRUCTIONS) {
+    errors.instructions = `Las instrucciones admiten hasta ${MAX_INSTRUCTIONS} caracteres.`;
+  }
   return errors;
 }
 
@@ -174,8 +181,131 @@ export function toCreateRequest(values: QuizFormValues): CreateQuizRequest {
     opensAt: new Date(values.opensAt).toISOString(),
     closesAt: new Date(values.closesAt).toISOString(),
     showGrade: values.showGrade,
+    instructions: values.instructions.trim() || null,
   };
 }
+
+// ── HU-36: instrucciones, material y edición de preguntas ───────────────
+
+export const MAX_INSTRUCTIONS = 2000;
+export const MAX_SOURCES = 5;
+export const MAX_MATERIAL_BYTES = 10 * 1024 * 1024;
+export const MATERIAL_EXTENSIONS = ['.pdf', '.md', '.markdown', '.txt', '.docx', '.ipynb'] as const;
+export const MATERIAL_ACCEPT = MATERIAL_EXTENSIONS.join(',');
+export const MAX_AI_INSTRUCTION = 600;
+
+/** Una fuente aún no enviada: el formulario de nuevo quiz las lee al crear el quiz. */
+export type PendingSource =
+  | { key: string; kind: 'link'; url: string; crawl: boolean }
+  | { key: string; kind: 'file'; file: File };
+
+export type SourceStatus = { state: 'pending' } | { state: 'reading' } | { state: 'ready'; material: MaterialDto } | { state: 'error'; message: string };
+
+export function validateMaterialLink(url: string): string | null {
+  const value = url.trim();
+  if (!value) return 'Escribe un enlace.';
+  if (!/^https?:\/\/\S+$/i.test(value)) return 'Usa un enlace que empiece por http:// o https://.';
+  try {
+    new URL(value);
+  } catch {
+    return 'El enlace no es válido.';
+  }
+  return null;
+}
+
+export function validateMaterialFile(file: Pick<File, 'name' | 'size'>): string | null {
+  const name = file.name.toLowerCase();
+  if (!MATERIAL_EXTENSIONS.some(ext => name.endsWith(ext))) {
+    return `${file.name}: formato no admitido. Usa PDF, Markdown, TXT, DOCX o .ipynb.`;
+  }
+  if (file.size === 0) return `${file.name} está vacío.`;
+  if (file.size > MAX_MATERIAL_BYTES) return `${file.name} pesa ${formatBytes(file.size)}; el máximo es 10 MB.`;
+  return null;
+}
+
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toLocaleString('es-CO', { maximumFractionDigits: 1 })} MB`;
+}
+
+/** «Sitio · 24 páginas · 386 mil caracteres (recortado)». */
+export function materialDetail(material: MaterialDto): string {
+  const parts: string[] = [material.formatLabel];
+  if (material.format === 'SITE' || material.format === 'PDF') {
+    parts.push(`${material.pages} ${material.pages === 1 ? 'página' : 'páginas'}${material.format === 'SITE' && material.pages >= 30 ? ' (límite)' : ''}`);
+  }
+  const thousands = Math.round(material.characters / 1000);
+  parts.push(`${thousands > 0 ? `${thousands.toLocaleString('es-CO')} mil` : material.characters} caracteres${material.truncated ? ' (recortado)' : ''}`);
+  return parts.join(' · ');
+}
+
+export function pendingDetail(source: PendingSource): string {
+  if (source.kind === 'file') return `${source.file.name.split('.').pop()?.toUpperCase() ?? 'Archivo'} · ${formatBytes(source.file.size)} · se leerá al crear el quiz`;
+  return `${source.crawl ? 'Sitio' : 'Enlace'} · se leerá al crear el quiz`;
+}
+
+export interface QuestionDraft {
+  statement: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  hint: string;
+}
+
+export type QuestionDraftErrors = Partial<Record<'statement' | 'correctIndex' | 'explanation' | 'hint' | 'options' | `options.${number}`, string>>;
+
+const WILDCARDS = ['todas las anteriores', 'ninguna de las anteriores', 'todas las opciones', 'ninguna de las opciones', 'todas son correctas', 'ninguna es correcta'];
+
+function normalized(text: string): string {
+  return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/** Mismas reglas de forma que el servidor (QuestionRules); el servidor tiene la última palabra. */
+export function validateQuestionDraft(draft: QuestionDraft): QuestionDraftErrors {
+  const errors: QuestionDraftErrors = {};
+  const statement = draft.statement.trim();
+  if (statement.length < 20) errors.statement = 'El enunciado necesita al menos 20 caracteres.';
+  else if (statement.length > 1200) errors.statement = 'El enunciado admite hasta 1200 caracteres.';
+  const seen = new Set<string>();
+  draft.options.forEach((option, index) => {
+    const text = option.trim();
+    const key = `options.${index}` as const;
+    if (!text) errors[key] = `Escribe la opción ${index + 1}.`;
+    else if (text.length > 320) errors[key] = 'La opción admite hasta 320 caracteres.';
+    else if (WILDCARDS.some(w => normalized(text).includes(w))) errors[key] = 'Las opciones se barajan para cada estudiante: evita «todas» o «ninguna de las anteriores».';
+    else if (seen.has(normalized(text))) errors[key] = 'Esta opción repite otra; las cuatro deben ser distintas.';
+    seen.add(normalized(text));
+  });
+  if (draft.correctIndex < 0 || draft.correctIndex > 3) errors.correctIndex = 'Marca la opción correcta.';
+  if (draft.explanation.trim().length > 2000) errors.explanation = 'La justificación admite hasta 2000 caracteres.';
+  if (draft.hint.trim().length > 200) errors.hint = 'La pista admite hasta 200 caracteres.';
+  return errors;
+}
+
+/**
+ * Aviso, no error: una correcta mucho más larga que las demás delata la respuesta. Es la misma
+ * heurística con la que el generador descarta preguntas.
+ */
+export function longCorrectWarning(draft: Pick<QuestionDraft, 'options' | 'correctIndex'>): boolean {
+  const lengths = draft.options.map(o => o.trim().length);
+  const correct = lengths[draft.correctIndex] ?? 0;
+  const others = lengths.filter((_, i) => i !== draft.correctIndex);
+  if (others.length === 0 || correct === 0) return false;
+  return correct > Math.max(...others) * 2 && correct > Math.max(...others) + 24;
+}
+
+export function questionDraft(question: Pick<BankQuestionDto, 'statement' | 'options' | 'correctIndex' | 'explanation' | 'hint'>): QuestionDraft {
+  return {
+    statement: question.statement,
+    options: [...question.options],
+    correctIndex: question.correctIndex,
+    explanation: question.explanation ?? '',
+    hint: question.hint ?? '',
+  };
+}
+
+export const editKindLabel: Record<'MANUAL' | 'AI', string> = { MANUAL: 'Editada', AI: 'Editada con IA' };
 
 /** Valor para `<input type="datetime-local">` en la hora local del navegador. */
 export function toLocalInput(date: Date): string {

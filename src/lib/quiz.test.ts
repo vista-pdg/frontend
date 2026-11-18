@@ -9,7 +9,7 @@ import {
 const NOW = new Date('2026-11-17T12:00:00');
 const valid: QuizFormValues = {
   courseCode: 'CEDI-G1', title: ' Quiz 2 ', topics: ['tree/avl/insert'], questionsPerStudent: '3', studentCount: '30',
-  timeLimitMinutes: '30', opensAt: '2026-11-17T08:00', closesAt: '2026-11-19T23:59', showGrade: true,
+  timeLimitMinutes: '30', opensAt: '2026-11-17T08:00', closesAt: '2026-11-19T23:59', showGrade: true, instructions: '',
 };
 
 describe('formato', () => {

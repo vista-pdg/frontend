@@ -5,6 +5,7 @@ import {
   answerQuestion, createQuiz, deleteBankQuestion, deleteQuiz, fetchAttempt, fetchManagedCourses, fetchManagedQuizzes,
   fetchMyQuizzes, fetchQuizDetail, fetchQuizReport, fetchQuizResults, fetchQuizTopics, generateBankBatch, publishQuiz,
   reportIntegrityEvent, setGradeVisibility, startAttempt, submitAttempt,
+  addMaterialFile, addMaterialLink, deleteMaterial, proposeQuestionEdit, updateBankQuestion, updateGuidance,
 } from './quizService';
 
 const data = { marker: true };
@@ -52,7 +53,7 @@ it('consulta y modifica la gestión docente en sus rutas', async () => {
   expect(http.get).toHaveBeenLastCalledWith('/quizzes/manage/9/results', { signal: undefined });
 
   const request = { courseCode: 'CEDI-G1', title: 'Quiz', topics: ['tree/avl/insert'], questionsPerStudent: 3, studentCount: null,
-    timeLimitMinutes: 30, opensAt: '2026-11-17T13:00:00.000Z', closesAt: '2026-11-19T13:00:00.000Z', showGrade: true };
+    timeLimitMinutes: 30, opensAt: '2026-11-17T13:00:00.000Z', closesAt: '2026-11-19T13:00:00.000Z', showGrade: true, instructions: null };
   expect(await createQuiz(request)).toBe(data);
   expect(http.post).toHaveBeenLastCalledWith('/quizzes/manage', request);
   expect(await generateBankBatch(9, controller.signal)).toBe(data);
@@ -81,4 +82,31 @@ it('propaga un 403 en lugar de devolver datos viejos', async () => {
   vi.mocked(http.get).mockRejectedValue(error);
   await expect(fetchQuizResults(9)).rejects.toBe(error);
   await expect(fetchMyQuizzes()).rejects.toBe(error);
+});
+
+it('HU-36: envía el tiempo visible acotado y gestiona instrucciones, material y edición', async () => {
+  await answerQuestion(7, 2, 1, 12_345.6);
+  expect(http.put).toHaveBeenLastCalledWith('/quizzes/7/attempt/answers/2', { selectedOption: 1, elapsedMs: 12_346 });
+  await answerQuestion(7, 2, 1, -4);
+  expect(http.put).toHaveBeenLastCalledWith('/quizzes/7/attempt/answers/2', { selectedOption: 1, elapsedMs: 0 });
+
+  expect(await updateGuidance(9, 'Usa CyED1')).toBe(data);
+  expect(http.put).toHaveBeenLastCalledWith('/quizzes/manage/9/guidance', { instructions: 'Usa CyED1' });
+  expect(await addMaterialLink(9, 'https://cyedbooks.github.io/CyED1/', true)).toBe(data);
+  expect(http.post).toHaveBeenLastCalledWith('/quizzes/manage/9/materials/link', { url: 'https://cyedbooks.github.io/CyED1/', crawl: true });
+  const file = new File(['# Notas'], 'notas.md', { type: 'text/markdown' });
+  expect(await addMaterialFile(9, file)).toBe(data);
+  const [url, form, config] = vi.mocked(http.post).mock.lastCall!;
+  expect(url).toBe('/quizzes/manage/9/materials/file');
+  expect((form as FormData).get('file')).toBe(file);
+  expect(config).toEqual({ headers: { 'Content-Type': 'multipart/form-data' } });
+  await deleteMaterial(9, 4);
+  expect(http.delete).toHaveBeenLastCalledWith('/quizzes/manage/9/materials/4');
+
+  const edit = { statement: 'S', options: ['a', 'b', 'c', 'd'], correctIndex: 1, explanation: '', hint: '', source: 'AI' as const };
+  expect(await updateBankQuestion(9, 3, edit)).toBe(data);
+  expect(http.put).toHaveBeenLastCalledWith('/quizzes/manage/9/questions/3', edit);
+  const controller = new AbortController();
+  expect(await proposeQuestionEdit(9, 3, 'Más difícil', controller.signal)).toBe(data);
+  expect(http.post).toHaveBeenLastCalledWith('/quizzes/manage/9/questions/3/ai-proposal', { instruction: 'Más difícil' }, { signal: controller.signal });
 });

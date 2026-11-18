@@ -12,6 +12,7 @@ import { MicroLabel } from '@/components/quiz/QuizPageShell';
 import { ScenarioCard } from '@/components/quiz/ScenarioCard';
 import { StudyTutor } from '@/components/quiz/StudyTutor';
 import { useBankGeneration, type BankProgress as Progress } from '@/hooks/useBankGeneration';
+import { useVisibleTime } from '@/hooks/useVisibleTime';
 import { ApiError } from '@/lib/http';
 import { KEEPS_STUDY, optionMark, studySummary } from '@/lib/quiz';
 import { cn } from '@/lib/utils';
@@ -76,6 +77,9 @@ export function StudyQuizPage() {
   const onProgress = useCallback((next: Progress) => { setProgress(next); setReload(n => n + 1); }, []);
   const generation = useBankGeneration(id, onProgress, generateStudyBatch, KEEPS_STUDY);
 
+  // HU-36 · CA-9: tiempo que la pregunta estuvo visible antes de comprobarla.
+  const elapsed = useVisibleTime(quiz ? current : null);
+
   function replace(updated: StudyQuestionDto) {
     setQuiz(previous => previous && { ...previous, questions: previous.questions.map(q => q.position === updated.position ? updated : q) });
   }
@@ -87,7 +91,7 @@ export function StudyQuizPage() {
     try {
       if (kind === 'hint') replace(await revealStudyHint(id, position));
       else if (kind === 'solution') replace(await revealStudySolution(id, position));
-      else replace(await answerStudyQuestion(id, position, choices[position]));
+      else replace(await answerStudyQuestion(id, position, choices[position], elapsed(position)));
     } catch (error) {
       setActionError(error instanceof ApiError && error.status === 409 ? error.message : 'No se pudo completar la acción. Revisa tu conexión e intenta de nuevo.');
     } finally {

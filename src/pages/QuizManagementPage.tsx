@@ -9,14 +9,28 @@ import { MicroLabel, QuizPageShell, quizControlClass } from '@/components/quiz/Q
 import { useAuth } from '@/contexts/useAuth';
 import { useBankGeneration } from '@/hooks/useBankGeneration';
 import { ApiError } from '@/lib/http';
-import { bankSize, fieldDescribedBy, formatDateTime, phaseLabel, toCreateRequest, toLocalInput, validateQuizForm, type QuizFormErrors, type QuizFormValues } from '@/lib/quiz';
+import { MAX_INSTRUCTIONS, bankSize, fieldDescribedBy, formatDateTime, materialDetail, pendingDetail, phaseLabel, toCreateRequest, toLocalInput, validateQuizForm, type PendingSource, type QuizFormErrors, type QuizFormValues, type SourceStatus } from '@/lib/quiz';
 import { TopicPicker } from '@/components/quiz/TopicPicker';
 import { QuizField } from '@/components/quiz/QuizField';
-import { createQuiz, fetchManagedCourses, fetchManagedQuizzes, fetchQuizTopics } from '@/services/quizService';
+import { MaterialSources, type SourceRow } from '@/components/quiz/MaterialSources';
+import { addMaterialFile, addMaterialLink, createQuiz, fetchManagedCourses, fetchManagedQuizzes, fetchQuizTopics } from '@/services/quizService';
 import type { ManagedCourseDto, QuizSummaryDto, QuizTopicDto } from '@/types/quiz';
 
 type LoadState<T> = { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: T };
-const FIELD_ORDER: (keyof QuizFormValues)[] = ['courseCode', 'title', 'topics', 'questionsPerStudent', 'studentCount', 'timeLimitMinutes', 'opensAt', 'closesAt'];
+const FIELD_ORDER: (keyof QuizFormValues)[] = ['courseCode', 'title', 'topics', 'questionsPerStudent', 'studentCount', 'timeLimitMinutes', 'opensAt', 'closesAt', 'instructions'];
+
+type NewSource = { kind: 'link'; url: string; crawl: boolean } | { kind: 'file'; file: File };
+
+/** Fila visible de una fuente: pendiente antes de crear el quiz y luego leída o con su error. */
+function sourceRow(source: PendingSource, status: SourceStatus | undefined): SourceRow {
+  const title = source.kind === 'link' ? source.url : source.file.name;
+  const state = status?.state ?? 'pending';
+  const detail = status?.state === 'ready' ? materialDetail(status.material)
+    : status?.state === 'error' ? status.message
+      : status?.state === 'reading' ? (source.kind === 'link' && source.crawl ? 'Recorriendo el sitio…' : 'Leyendo…')
+        : pendingDetail(source);
+  return { key: source.key, kind: source.kind, title: status?.state === 'ready' ? status.material.name : title, detail, state, format: status?.state === 'ready' ? status.material.format : undefined };
+}
 
 function emptyForm(course: ManagedCourseDto | undefined): QuizFormValues {
   const opens = new Date();
@@ -33,7 +47,13 @@ function emptyForm(course: ManagedCourseDto | undefined): QuizFormValues {
     opensAt: toLocalInput(opens),
     closesAt: toLocalInput(closes),
     showGrade: true,
+    instructions: '',
   };
+}
+
+function sourceFailure(error: unknown, field: 'url' | 'file'): string {
+  if (error instanceof ApiError) return error.fieldErrors[field] ?? error.message;
+  return 'No se pudo leer la fuente. Revisa tu conexión.';
 }
 
 function NewQuizForm({ courses, topics, initialCourse, onCancel }: {
@@ -48,12 +68,18 @@ function NewQuizForm({ courses, topics, initialCourse, onCancel }: {
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState<QuizSummaryDto | null>(null);
   const [progress, setProgress] = useState({ bankSize: 0, bankTarget: 0 });
+  const [sources, setSources] = useState<PendingSource[]>([]);
+  const [statuses, setStatuses] = useState<Record<string, SourceStatus>>({});
+  const [phase, setPhase] = useState<'form' | 'reading' | 'problem' | 'generating'>('form');
+  const sourceSeq = useRef(0);
   const formRef = useRef<HTMLFormElement>(null);
   const generation = useBankGeneration(created?.id ?? null, setProgress);
 
   const course = courses.find(c => c.code === values.courseCode);
   const bank = bankSize(values);
   const locked = saving || created !== null;
+  const settled = sources.filter(s => statuses[s.key]?.state === 'ready' || statuses[s.key]?.state === 'error').length;
+  const failedSources = sources.flatMap(s => { const st = statuses[s.key]; return st?.state === 'error' ? [{ key: s.key, message: st.message }] : []; });
 
   function set<K extends keyof QuizFormValues>(field: K, value: QuizFormValues[K]) {
     setValues(current => ({ ...current, [field]: value }));
@@ -77,6 +103,30 @@ function NewQuizForm({ courses, topics, initialCourse, onCancel }: {
     target?.focus();
   }
 
+  function addSource(source: NewSource) {
+    sourceSeq.current += 1;
+    const key = `s${sourceSeq.current}`;
+    setSources(current => [...current, { ...source, key }]);
+    return null;
+  }
+  /** HU-36 · CA-2: el material se lee al crear el quiz, una fuente tras otra, antes de generar. */
+  async function readSources(quizId: number): Promise<number> {
+    let failed = 0;
+    for (const source of sources) {
+      setStatuses(current => ({ ...current, [source.key]: { state: 'reading' } }));
+      try {
+        const material = source.kind === 'link'
+          ? await addMaterialLink(quizId, source.url, source.crawl)
+          : await addMaterialFile(quizId, source.file);
+        setStatuses(current => ({ ...current, [source.key]: { state: 'ready', material } }));
+      } catch (error) {
+        failed += 1;
+        setStatuses(current => ({ ...current, [source.key]: { state: 'error', message: sourceFailure(error, source.kind === 'link' ? 'url' : 'file') } }));
+      }
+    }
+    return failed;
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (locked) return;
@@ -89,6 +139,12 @@ function NewQuizForm({ courses, topics, initialCourse, onCancel }: {
       const quiz = await createQuiz(toCreateRequest(values));
       setCreated(quiz);
       setProgress({ bankSize: quiz.bankSize, bankTarget: quiz.bankTarget });
+      setSaving(false);
+      if (sources.length > 0) {
+        setPhase('reading');
+        if (await readSources(quiz.id) > 0) return setPhase('problem');
+      }
+      setPhase('generating');
       void generation.start(quiz.id);
     } catch (error) {
       if (error instanceof ApiError && Object.keys(error.fieldErrors).length > 0) {
@@ -160,6 +216,24 @@ function NewQuizForm({ courses, topics, initialCourse, onCancel }: {
             onChange={e => set('showGrade', e.target.checked)} />
           Mostrar la nota al estudiante al finalizar
         </label>
+        <section className="space-y-4 border border-border p-4" aria-labelledby="quiz-ai-title" data-cy="quiz-ai-section">
+          <div className="space-y-1">
+            <h2 id="quiz-ai-title" className="flex items-center gap-2"><Sparkles className="size-3.5 text-primary-light" aria-hidden="true" /><MicroLabel>Para la IA · opcional</MicroLabel></h2>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">Se suman a las reglas de VISTA. El escenario validado y sus hechos siguen siendo la fuente de verdad de cada pregunta.</p>
+          </div>
+          <QuizField id="quiz-instructions" label="Instrucciones para la IA" error={errors.instructions}
+            hint={`${values.instructions.trim().length} / ${MAX_INSTRUCTIONS} · Texto plano. Se aplican a cada lote y a la edición con IA.`}>
+            <textarea id="quiz-instructions" name="instructions" data-cy="quiz-instructions" rows={4} className={`${quizControlClass} py-2.5 leading-relaxed`}
+              placeholder="Ejemplo: usa la notación del libro del curso y pregunta por el costo de cada operación."
+              value={values.instructions} onChange={e => set('instructions', e.target.value)} disabled={locked}
+              aria-invalid={!!errors.instructions} aria-describedby={fieldDescribedBy('quiz-instructions', errors.instructions, 'x')} />
+          </QuizField>
+          <MaterialSources idPrefix="quiz" disabled={locked}
+            rows={sources.map(source => sourceRow(source, statuses[source.key]))}
+            onAddLink={(url, crawl) => addSource({ kind: 'link', url, crawl })}
+            onAddFile={file => addSource({ kind: 'file', file })}
+            onRemove={key => setSources(current => current.filter(s => s.key !== key))} />
+        </section>
         {serverError && <Alert><span data-cy="quiz-form-error">{serverError}</span></Alert>}
         <div className="flex flex-wrap gap-3">
           <Button type="submit" className="min-h-11 px-4" data-cy="quiz-create" disabled={locked}>
@@ -172,8 +246,30 @@ function NewQuizForm({ courses, topics, initialCourse, onCancel }: {
       </form>
 
       <aside className="space-y-4" aria-label="Estado del banco">
+        {created && phase === 'reading' && (
+          <section className="space-y-3 border border-border bg-card p-5" data-cy="material-reading" aria-live="polite">
+            <MicroLabel>Leyendo material</MicroLabel>
+            <p className="font-mono text-[20px] font-semibold">{settled} de {sources.length} fuentes</p>
+            <div className="h-1.5 w-full bg-muted" aria-hidden="true"><div className="h-full bg-primary transition-[width]" style={{ width: `${(settled / sources.length) * 100}%` }} /></div>
+            <p className="text-[11px] text-muted-foreground">La generación empieza cuando termina la lectura. Un sitio completo puede tardar hasta un minuto.</p>
+          </section>
+        )}
+        {created && phase === 'problem' && (
+          <section className="space-y-3 border border-border bg-card p-5" data-cy="material-problem">
+            <MicroLabel>{failedSources.length === 1 ? 'Una fuente no se pudo leer' : `${failedSources.length} fuentes no se pudieron leer`}</MicroLabel>
+            <Alert><ul className="space-y-1" data-cy="material-problem-list">{failedSources.map(s => <li key={s.key}>{s.message}</li>)}</ul></Alert>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">El quiz ya quedó como borrador. Puedes generar sin esas fuentes o corregir el material en su banco.</p>
+            <div className="flex flex-wrap gap-3">
+              <Button className="min-h-11 px-4" data-cy="material-generate-anyway" onClick={() => { setPhase('generating'); void generation.start(created.id); }}>
+                <Sparkles aria-hidden="true" />{failedSources.length === 1 ? 'Generar sin esa fuente' : 'Generar sin esas fuentes'}
+              </Button>
+              <Link to={`/docencia/quizzes/${created.id}`} data-cy="material-go-bank"
+                className="inline-flex min-h-11 items-center border border-border px-4 text-[13px] font-semibold hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">Ir al banco</Link>
+            </div>
+          </section>
+        )}
         {created ? (
-          <BankProgress state={generation.state} bankSize={progress.bankSize} bankTarget={progress.bankTarget}
+          phase === 'generating' && <BankProgress state={generation.state} bankSize={progress.bankSize} bankTarget={progress.bankTarget}
             onStart={() => void generation.start()} onPause={generation.pause} reviewTo={`/docencia/quizzes/${created.id}`} />
         ) : (
           <section className="space-y-3 border border-border p-5">

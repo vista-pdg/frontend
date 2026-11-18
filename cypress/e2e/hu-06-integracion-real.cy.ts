@@ -40,6 +40,8 @@ describe('HU-06 · Integración real de telemetría, autorización y tablero', (
       const report = response!.body as PedagogicalReport;
       expect(report.structures.some(row => row.status === 'AVAILABLE' && row.frequency! >= 15)).to.eq(true);
       expect(report.algorithms.some(row => row.status === 'AVAILABLE' && row.executions! >= 5)).to.eq(true);
+      expect(report.status).to.eq('AVAILABLE');
+      cy.get('[data-cy=analytics-tab-usage]').click();
       for (const row of report.structures.filter(row => row.status === 'AVAILABLE')) {
         cy.get('[data-cy=analytics-structure-row]').filter(`:contains("${structureLabel(row.structure)}")`).should('contain', metricNumber(row.frequency!));
       }
@@ -50,7 +52,7 @@ describe('HU-06 · Integración real de telemetría, autorización y tablero', (
       cy.intercept('GET', '/api/analytics/report.csv?*').as('realCsv');
       cy.get('[data-cy=analytics-export]').click();
       cy.wait('@realCsv').its('response.statusCode').should('eq', 200);
-      cy.readFile(`cypress/downloads/vista-analitica-${report.from}-${report.to}.csv`).should('contain', 'CEDI-G1').and('contain', 'Estructuras');
+      cy.readFile(`cypress/downloads/vista-analitica-CEDI-G1-${report.course.termCode}.csv`).should('contain', 'CEDI-G1').and('contain', 'Estructuras');
     });
     cy.loginByApi(SEEDED.student.email, SEEDED.student.password);
     cy.storedSession().then(({ accessToken }) => cy.request({ url: '/api/analytics/courses', headers: { Authorization: `Bearer ${accessToken}` }, failOnStatusCode: false }).its('status').should('eq', 403));

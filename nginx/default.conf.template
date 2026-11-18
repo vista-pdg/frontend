@@ -64,6 +64,15 @@ server {
         proxy_pass $backend;
     }
 
+    # HU-36: material de referencia de un quiz (PDF, DOCX, Markdown...). El backend acepta
+    # hasta 10 MB por archivo y 11 MB por solicitud; el resto de la API conserva 1 MB.
+    location ~ ^/api/quizzes/manage/[0-9]+/materials/file$ {
+        client_max_body_size 11m;
+        add_header Cache-Control "no-store" always;
+        limit_req zone=api burst=200 nodelay;
+        proxy_pass $backend;
+    }
+
     location /api/ {
         add_header Cache-Control "no-store" always;
         limit_req zone=api burst=200 nodelay;

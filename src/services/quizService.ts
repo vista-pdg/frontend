@@ -1,6 +1,11 @@
 import http from '@/lib/http';
 import type {
+  AiProposalDto,
   AttemptDto,
+  BankQuestionDto,
+  GuidanceDto,
+  MaterialDto,
+  QuestionEditRequest,
   AttemptReviewDto,
   CreateQuizRequest,
   GenerateBatchResponse,
@@ -31,13 +36,16 @@ export async function fetchAttempt(quizId: number, signal?: AbortSignal): Promis
   return data;
 }
 
+/** HU-36: `elapsedMs` es el tiempo que la pregunta estuvo visible; el servidor lo acota. */
 export async function answerQuestion(
   quizId: number,
   position: number,
   selectedOption: number | null,
+  elapsedMs?: number,
 ): Promise<AttemptDto> {
   const { data } = await http.put<AttemptDto>(`/quizzes/${quizId}/attempt/answers/${position}`, {
     selectedOption,
+    ...(elapsedMs === undefined ? {} : { elapsedMs: Math.max(0, Math.round(elapsedMs)) }),
   });
   return data;
 }
@@ -96,6 +104,50 @@ export async function generateBankBatch(quizId: number, signal?: AbortSignal): P
 
 export async function deleteBankQuestion(quizId: number, questionId: number): Promise<void> {
   await http.delete(`/quizzes/manage/${quizId}/questions/${questionId}`);
+}
+
+// ── HU-36: instrucciones, material y edición del banco ──────────────────
+
+export async function updateGuidance(quizId: number, instructions: string): Promise<GuidanceDto> {
+  const { data } = await http.put<GuidanceDto>(`/quizzes/manage/${quizId}/guidance`, { instructions });
+  return data;
+}
+
+export async function addMaterialLink(quizId: number, url: string, crawl: boolean): Promise<MaterialDto> {
+  const { data } = await http.post<MaterialDto>(`/quizzes/manage/${quizId}/materials/link`, { url, crawl });
+  return data;
+}
+
+/** El navegador pone el límite multipart; sin esta cabecera axios convertiría el FormData a JSON. */
+export async function addMaterialFile(quizId: number, file: File): Promise<MaterialDto> {
+  const form = new FormData();
+  form.append('file', file);
+  const { data } = await http.post<MaterialDto>(`/quizzes/manage/${quizId}/materials/file`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
+export async function deleteMaterial(quizId: number, materialId: number): Promise<void> {
+  await http.delete(`/quizzes/manage/${quizId}/materials/${materialId}`);
+}
+
+export async function updateBankQuestion(
+  quizId: number,
+  questionId: number,
+  request: QuestionEditRequest,
+): Promise<BankQuestionDto> {
+  const { data } = await http.put<BankQuestionDto>(`/quizzes/manage/${quizId}/questions/${questionId}`, request);
+  return data;
+}
+
+export async function proposeQuestionEdit(quizId: number, questionId: number, instruction: string, signal?: AbortSignal): Promise<AiProposalDto> {
+  const { data } = await http.post<AiProposalDto>(
+    `/quizzes/manage/${quizId}/questions/${questionId}/ai-proposal`,
+    { instruction },
+    { signal },
+  );
+  return data;
 }
 
 export async function publishQuiz(quizId: number): Promise<QuizSummaryDto> {

@@ -27,6 +27,8 @@ export interface CreateQuizRequest {
   opensAt: string;
   closesAt: string;
   showGrade: boolean;
+  /** HU-36: directivas del docente para la IA; nulo si no hay. */
+  instructions: string | null;
 }
 
 export type QuizPhase = 'DRAFT' | 'SCHEDULED' | 'OPEN' | 'CLOSED';
@@ -60,12 +62,57 @@ export interface BankQuestionDto {
   options: string[];
   correctIndex: number;
   explanation: string | null;
+  hint: string | null;
   timesAssigned: number;
+  /** HU-36: borrador, o publicada sin asignar a ningún intento. */
+  editable: boolean;
+  editKind: 'MANUAL' | 'AI' | null;
+  editedAt: string | null;
+}
+
+export type MaterialFormat = 'SITE' | 'HTML' | 'PDF' | 'DOCX' | 'MARKDOWN' | 'TEXT' | 'NOTEBOOK';
+
+/** HU-36: una fuente de material ya leída; el texto no sale del servidor. */
+export interface MaterialDto {
+  id: number;
+  kind: 'LINK' | 'FILE';
+  name: string;
+  source: string | null;
+  format: MaterialFormat;
+  formatLabel: string;
+  pages: number;
+  characters: number;
+  truncated: boolean;
+  createdAt: string;
 }
 
 export interface QuizDetailDto {
   quiz: QuizSummaryDto;
   questions: BankQuestionDto[];
+  instructions: string | null;
+  materials: MaterialDto[];
+}
+
+export interface GuidanceDto {
+  instructions: string | null;
+  materials: MaterialDto[];
+}
+
+export interface QuestionEditRequest {
+  statement: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  hint: string;
+  source: 'MANUAL' | 'AI';
+}
+
+export interface AiProposalDto {
+  statement: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string | null;
+  hint: string | null;
 }
 
 export interface GenerateBatchResponse {

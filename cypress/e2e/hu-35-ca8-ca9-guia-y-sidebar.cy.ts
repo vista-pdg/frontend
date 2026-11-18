@@ -29,8 +29,9 @@ describe('HU-35 · Guía de VISTA y barra lateral', () => {
     cy.visit('/');
     stepTo(6);
     by('tutorial-highlight').should('have.attr', 'data-target', '[data-cy=sidebar-quizzes]');
-    by('tutorial-callout').should('contain', '7 / 7').and('contain', 'Quizzes de tus cursos').and('contain', 'asignó');
-    by('tutorial-next').should('contain', 'Terminar');
+    // HU-36 · CA-11: el docente tiene además el paso de la analítica pedagógica.
+    by('tutorial-callout').should('contain', '7 / 8').and('contain', 'Quizzes de tus cursos').and('contain', 'asignó');
+    by('tutorial-next').should('contain', 'Siguiente');
   });
 
   it('al expandir la barra, los botones de demo no toman el hover amarillo hasta quedar en su sitio', () => {

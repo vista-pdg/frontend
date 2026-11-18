@@ -27,9 +27,10 @@ const STUDENT_QUIZZES: readonly TutorialStep[] = [
   { title: 'Quizzes de estudio', description: 'Crea quizzes solo para ti sobre los temas que elijas, con pista, solución y un tutor IA que responde sobre la pregunta en curso. Cada lote de preguntas y cada mensaje al tutor usan tu cuota diaria.', targets: [QUIZZES], sidebar: true },
 ];
 
-/** HU-35 · CA-8: docentes y administradores gestionan los quizzes de sus cursos. */
+/** HU-35 · CA-8 y HU-36 · CA-11: docentes y administradores gestionan quizzes y leen la analítica. */
 const STAFF_QUIZZES: readonly TutorialStep[] = [
-  { title: 'Quizzes de tus cursos', description: 'Crea y publica quizzes para los cursos que el administrador te asignó; solo ves esos cursos y el administrador ve todos. Cada pregunta trae su escenario listo para que el estudiante lo inserte en el chat.', targets: [QUIZZES], sidebar: true },
+  { title: 'Quizzes de tus cursos', description: 'Crea quizzes para los cursos que el administrador te asignó; el administrador ve todos. Añade instrucciones y material del curso (enlaces, PDF, Markdown, DOCX o cuadernos) para la IA, y edita cada pregunta a mano o con IA antes de publicar.', targets: [QUIZZES], sidebar: true },
+  { title: 'Analítica pedagógica', description: 'Revisa qué temas cuestan más a tu grupo, en qué opciones fallan, qué responden más rápido y cómo se relaciona la práctica en VISTA con los quizzes. Las fechas y el quiz son filtros opcionales: sin ellos se usa todo el periodo.', targets: ['[data-cy=sidebar-analytics]'], sidebar: true },
 ];
 
 export function tutorialSteps(roles: readonly Role[]): readonly TutorialStep[] {

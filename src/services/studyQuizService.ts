@@ -38,8 +38,12 @@ export async function generateStudyBatch(id: number, signal?: AbortSignal): Prom
   return data;
 }
 
-export async function answerStudyQuestion(id: number, position: number, selectedOption: number): Promise<StudyQuestionDto> {
-  const { data } = await http.put<StudyQuestionDto>(`/study-quizzes/${id}/questions/${position}/answer`, { selectedOption });
+/** HU-36: `elapsedMs` es el tiempo que la pregunta estuvo visible antes de comprobarla. */
+export async function answerStudyQuestion(id: number, position: number, selectedOption: number, elapsedMs?: number): Promise<StudyQuestionDto> {
+  const { data } = await http.put<StudyQuestionDto>(`/study-quizzes/${id}/questions/${position}/answer`, {
+    selectedOption,
+    ...(elapsedMs === undefined ? {} : { elapsedMs: Math.max(0, Math.round(elapsedMs)) }),
+  });
   return data;
 }
 

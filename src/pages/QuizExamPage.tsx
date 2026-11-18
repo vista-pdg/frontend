@@ -11,6 +11,7 @@ import { ScenarioCard } from '@/components/quiz/ScenarioCard';
 import { MicroLabel } from '@/components/quiz/QuizPageShell';
 import { useAuth } from '@/contexts/useAuth';
 import { enterFullscreen, leaveFullscreen, useExamGuard } from '@/hooks/useExamGuard';
+import { useVisibleTime } from '@/hooks/useVisibleTime';
 import { ApiError } from '@/lib/http';
 import { answeredCount, clockOffset, formatDateTime, formatGrade, formatRemaining, remainingMs } from '@/lib/quiz';
 import { cn } from '@/lib/utils';
@@ -160,6 +161,9 @@ export function QuizExamPage() {
     }));
   }, [running, remaining, quizId, finish]);
 
+  // HU-36 · CA-9: tiempo visible de la pregunta en pantalla, para la analítica del docente.
+  const elapsed = useVisibleTime(running ? current : null);
+
   function choose(position: number, option: number) {
     if (!attempt) return;
     const before = attempt.questions.find(q => q.position === position)?.selectedOption ?? null;
@@ -168,11 +172,12 @@ export function QuizExamPage() {
     });
     setSaveError('');
     select(option);
+    const spent = elapsed(position);
     pendingSaves.current += 1;
     setSaving(true);
     saveQueue.current = saveQueue.current.then(async () => {
       try {
-        const saved = await answerQuestion(quizId, position, option);
+        const saved = await answerQuestion(quizId, position, option, spent);
         // Solo el último guardado pinta el estado del servidor, para no borrar una elección posterior.
         if (pendingSaves.current === 1) setAttempt(saved);
         setSavedAt(new Date().toLocaleTimeString('es-CO', { hour12: false }));

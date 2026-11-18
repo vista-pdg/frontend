@@ -11,12 +11,17 @@ describe('guía de VISTA por rol (HU-35 · CA-8)', () => {
     expect(steps.slice(-2).every(step => step.sidebar && step.targets[0] === '[data-cy=sidebar-quizzes]')).toBe(true);
   });
 
-  it('docentes y administradores ven la gestión por cursos asignados', () => {
+  it('docentes y administradores ven la gestión por cursos asignados y la analítica (HU-36 · CA-11)', () => {
     for (const roles of [['TEACHER'], ['ADMIN']] as const) {
       const steps = tutorialSteps(roles);
-      expect(steps).toHaveLength(7);
+      expect(steps).toHaveLength(8);
       expect(steps[6].title).toBe('Quizzes de tus cursos');
       expect(steps[6].description).toContain('asignó');
+      expect(steps[6].description).toContain('material');
+      expect(steps[6].description).toContain('con IA');
+      expect(steps[7].title).toBe('Analítica pedagógica');
+      expect(steps[7].targets).toEqual(['[data-cy=sidebar-analytics]']);
+      expect(steps[7].sidebar).toBe(true);
     }
   });
 

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, Download, Loader2, Minus, RefreshCw, Send, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, Download, Loader2, RefreshCw, Send, Sparkles, Trash2 } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { BankProgress } from '@/components/quiz/BankProgress';
+import { BankQuestionCard } from '@/components/quiz/BankQuestionCard';
+import { GuidancePanel } from '@/components/quiz/GuidancePanel';
 import { QuizBadge } from '@/components/quiz/QuizBadge';
 import { MicroLabel, QuizPageShell } from '@/components/quiz/QuizPageShell';
 import { useBankGeneration } from '@/hooks/useBankGeneration';
@@ -243,7 +245,7 @@ export function QuizDetailPage() {
   }
   async function changeVisibility(show: boolean) {
     const updated = await setGradeVisibility(quizId, show);
-    setDetail({ status: 'ready', data: { quiz: updated, questions } });
+    setDetail(current => current.status === 'ready' ? { status: 'ready', data: { ...current.data, quiz: updated } } : current);
   }
 
   return (
@@ -304,38 +306,21 @@ export function QuizDetailPage() {
               </div>
             </div>
           )}
+          <GuidancePanel quizId={quizId} editable={draft} instructions={detail.data.instructions} materials={detail.data.materials}
+            onChange={next => setDetail(current => current.status === 'ready' ? { status: 'ready', data: { ...current.data, ...next } } : current)} />
           {questions.length === 0
             ? <p className="border border-border p-6 text-sm" data-cy="quiz-bank-empty">El banco está vacío. Genera las preguntas para revisarlas.</p>
             : (
               <ol className="space-y-4" data-cy="quiz-bank-list">
                 {questions.map((question, index) => (
-                  <li key={question.id} data-cy="bank-question" className="space-y-2.5 border border-border p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <MicroLabel>#{index + 1} · {question.topicLabel}{question.timesAssigned > 0 ? ` · asignada ${question.timesAssigned} ${question.timesAssigned === 1 ? 'vez' : 'veces'}` : ''}</MicroLabel>
-                      {draft && (
-                        <Button variant="destructive" className="min-h-11 px-3" data-cy="bank-question-delete" disabled={generating}
-                          aria-label={`Eliminar la pregunta ${index + 1}`}
-                          onClick={event => { trigger.current = event.currentTarget; setPending({ kind: 'question', question }); }}>
-                          <Trash2 aria-hidden="true" />Eliminar
-                        </Button>
-                      )}
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted-foreground break-words">Escenario: {question.scenario}</p>
-                    <p className="text-sm font-medium leading-relaxed break-words">{question.statement}</p>
-                    <ul className="space-y-1">
-                      {question.options.map((option, optionIndex) => {
-                        const correct = optionIndex === question.correctIndex;
-                        return (
-                          <li key={optionIndex} data-correct={correct}
-                            className={cn('flex gap-2 border-l-2 px-2.5 py-1.5 text-[13px] leading-relaxed', correct ? 'border-annotation-green' : 'border-transparent')}>
-                            {correct ? <Check className="mt-0.5 size-3.5 shrink-0 text-annotation-green" aria-hidden="true" /> : <Minus className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
-                            <span className="min-w-0 break-words">{option}{correct && <span className="sr-only"> (respuesta correcta)</span>}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    {question.explanation && <p className="text-xs leading-relaxed text-muted-foreground break-words">Justificación: {question.explanation}</p>}
-                  </li>
+                  <BankQuestionCard key={question.id} quizId={quizId} question={question} number={index + 1} canDelete={draft} busy={generating}
+                    onDelete={target => { trigger.current = target; setPending({ kind: 'question', question }); }}
+                    onSaved={updated => {
+                      setNotice(`Pregunta ${index + 1} actualizada.`);
+                      setDetail(current => current.status === 'ready'
+                        ? { status: 'ready', data: { ...current.data, questions: current.data.questions.map(q => q.id === updated.id ? updated : q) } }
+                        : current);
+                    }} />
                 ))}
               </ol>
             )}
