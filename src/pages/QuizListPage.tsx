@@ -54,8 +54,8 @@ export function QuizListPage() {
   const data = state.status === 'ready' ? state.data : null;
   return (
     <QuizPageShell section="Quizzes" data-cy="quiz-list-page">
-      <h1 className="text-2xl font-bold tracking-tight">Quizzes de tu curso</h1>
-      <p className="mt-2 text-sm text-muted-foreground" data-cy="quiz-list-course">
+      <h1 className="text-[20px] font-bold tracking-tight">Quizzes de tu curso</h1>
+      <p className="mt-1 text-[13px] text-muted-foreground" data-cy="quiz-list-course">
         {data?.courseCode
           ? `${data.courseCode} · ${data.courseName}. Resuelve cada quiz dentro de su ventana usando VISTA.`
           : 'Resuelve cada quiz dentro de su ventana usando VISTA.'}

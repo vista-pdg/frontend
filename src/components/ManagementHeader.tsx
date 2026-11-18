@@ -5,10 +5,14 @@ import { useAuth } from '@/contexts/useAuth';
 
 const linkClass = 'inline-flex min-h-11 items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 
+export type ManagementSection = 'Admin' | 'Panel analítico' | 'Quizzes' | 'Quizzes del curso';
+
 /** Shared management shell follows the existing administration spacing and typography. */
-export function ManagementHeader({ section }: { section: 'Admin' | 'Panel analítico' }) {
-  const { user, logout, isAdmin } = useAuth();
+export function ManagementHeader({ section }: { section: ManagementSection }) {
+  const { user, logout, isAdmin, isTeacher } = useAuth();
   const admin = section === 'Admin';
+  const analytics = section === 'Panel analítico';
+  const navLabel = admin ? 'Navegación de administración' : analytics ? 'Navegación de analítica' : 'Navegación de quizzes';
   return <header className="sticky top-[2px] z-20 border-b border-border bg-shell/90 backdrop-blur-md">
     <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
       <div className="flex min-w-64 items-center gap-3" translate="no">
@@ -16,9 +20,11 @@ export function ManagementHeader({ section }: { section: 'Admin' | 'Panel analí
         <div><span className="text-[13px] font-bold uppercase tracking-[0.25em]">VISTA</span>
           <span className="mx-2 text-[13px] text-muted-foreground">/</span><span className="text-[13px] text-primary-light">{section}</span></div>
       </div>
-      <nav aria-label={admin ? 'Navegación de administración' : 'Navegación de analítica'} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {admin ? <Link to="/analytics" data-cy="admin-analytics" className={`${linkClass} w-24`}>Analítica</Link>
-          : isAdmin && <Link to="/admin" className={`${linkClass} w-24`}>Administración</Link>}
+      <nav aria-label={navLabel} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {admin ? <Link to="/analytics" data-cy="admin-analytics" className={`${linkClass} w-24`}>Analítica</Link> : <>
+          {!analytics && (isTeacher || isAdmin) && <Link to="/analytics" className={`${linkClass} w-24`}>Analítica</Link>}
+          {isAdmin && <Link to="/admin" className={`${linkClass} w-24`}>Administración</Link>}
+        </>}
         <Link to="/" data-cy="link-to-canvas" className={linkClass}><ChevronLeft className="size-3.5" aria-hidden="true" />Volver al visualizador</Link>
         <span className="h-4 w-px bg-border" aria-hidden="true" />
         <div className="flex items-center gap-2">

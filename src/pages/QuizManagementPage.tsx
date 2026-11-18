@@ -136,7 +136,7 @@ function NewQuizForm({ courses, topics, initialCourse, onCancel }: {
   return (
     <div className="mt-2 grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
       <form ref={formRef} onSubmit={submit} noValidate data-cy="quiz-form" aria-label="Nuevo quiz" className="min-w-0 space-y-5">
-        <h1 className="text-2xl font-bold tracking-tight">Nuevo quiz</h1>
+        <h1 className="text-[20px] font-bold tracking-tight">Nuevo quiz</h1>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="quiz-courseCode" label="Curso" error={errors.courseCode}>
             <select id="quiz-courseCode" name="courseCode" data-cy="quiz-courseCode" className={quizControlClass} value={values.courseCode}
@@ -268,8 +268,8 @@ export function QuizManagementPage() {
         <>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Quizzes</h1>
-              <p className="mt-2 text-sm text-muted-foreground">Genera bancos de preguntas con IA, asígnalos a tu curso y revisa los resultados.</p>
+              <h1 className="text-[20px] font-bold tracking-tight">Quizzes</h1>
+              <p className="mt-1 text-[13px] text-muted-foreground">Genera bancos de preguntas con IA, asígnalos a tu curso y revisa los resultados.</p>
             </div>
             <Button className="min-h-11 px-4" data-cy="quiz-new" disabled={!hasCourses} onClick={() => setCreating(true)}><Plus aria-hidden="true" />Nuevo quiz</Button>
           </div>

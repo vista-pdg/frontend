@@ -1,8 +1,8 @@
-describe('CA-4 · Marco visual de administración y analítica', () => {
+describe('CA-4 · Marco visual de administración, analítica y quizzes', () => {
   it('comparte cabecera institucional, escala de título y espaciados', () => {
     cy.loginByApi('admin@vista.com','admin123');
     const styles: Record<string,string> = {};
-    for (const route of ['/admin','/analytics']) {
+    for (const route of ['/admin','/analytics','/docencia/quizzes','/quizzes']) {
       cy.visit(route);
       cy.get('header [data-cy=icesi-brand]').should('have.css','width','32px');
       cy.get('main h1').should('have.css','font-size','20px');
